@@ -4,22 +4,25 @@ Version 0.1.9 - 2025-10-19
 ## 配置文件设计
 - [x] 使用 `toml` 作为配置文件格式
 - [x] <del>合理使用注释说明当前配置作用</del>（提案）
-- [ ] 使用 python 方法作为配置项说明（提案）
+- [x] 使用 python 方法作为配置项说明（提案）
     - [ ] 取消`bot_config_template.toml`
     - [ ] 取消`model_config_template.toml`
 - [x] 配置类中的所有原子项目应该只包含以下类型: `str`, `int`, `float`, `bool`, `list`, `dict`, `set`, `tuple`
+    - [ ] 禁止使用 `Union` 类型（尚未支持解析）
     - [x] 复杂类型使用嵌套配置类实现
 ### 移除template的方案提案
-- [ ] 方案一
-```python
+<details>
+<summary>配置项说明的废案</summary>
+<p>方案一</p>
+<pre>
 from typing import Annotated
 from dataclasses import dataclass, field
 @dataclass
 class Config:
     value: Annotated[str, "配置项说明"] = field(default="default_value")
-```
-- [ ] 方案二（不推荐）
-```python
+</pre>
+<p>方案二（不推荐）</p>
+<pre>
 from dataclasses import dataclass, field
 @dataclass
 class Config:
@@ -27,24 +30,26 @@ class Config:
     def value(self) -> str:
         """配置项说明"""
         return "default_value"
-```
-- [ ] 方案三（个人推荐）
-```python
-import ast, inspect
-class AttrDocBase:
-    ...
-from dataclasses import dataclass, field
-@dataclass
-class Config(AttrDocBase):
-    value: str = field(default="default_value")
-    """配置项说明"""
-```
-- [ ] 方案四
-```python
+</pre>
+<p>方案四</p>
+<pre>
 from dataclasses import dataclass, field
 @dataclass
 class Config:
     value: str = field(default="default_value", metadata={"doc": "配置项说明"})
+</pre>
+</details>
+
+- [x] 方案三（个人推荐）
+```python
+import ast, inspect
+class AttrDocConfigBase:
+    ...
+from dataclasses import dataclass, field
+@dataclass
+class Config(ConfigBase, AttrDocConfigBase):
+    value: str = field(default="default_value")
+    """配置项说明"""
 ```
 
 ### 配置文件实现热重载
