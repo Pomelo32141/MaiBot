@@ -1,5 +1,8 @@
 from dataclasses import dataclass, fields, MISSING
 from typing import TypeVar, Type, Any, get_origin, get_args, Literal
+from pathlib import Path
+import ast
+import inspect
 
 T = TypeVar("T", bound="ConfigBase")
 
@@ -142,3 +145,46 @@ class ConfigBase:
             return field_type(value)
         except (ValueError, TypeError) as e:
             raise TypeError(f"Cannot convert {type(value).__name__} to {field_type.__name__}") from e
+
+
+@dataclass
+class AttrDocConfigBase:
+    def __post_init__(self):
+        self.field_docs = self._get_field_docs() # 全局仅获取一次并保留
+
+    @classmethod
+    def _get_field_docs(cls) -> dict[str, str]:
+        """
+        获取字段的说明字符串
+
+        :param cls: 配置类
+        :return: 字段说明字典，键为字段名，值为说明字符串
+        """
+        # 获取目标类的代码文件
+        class_file = inspect.getfile(cls)
+        class_source = Path(class_file).read_text(encoding="utf-8")
+
+        # 解析源代码
+        tree = ast.parse(class_source)
+        doc_dict: dict[str, str] = {}
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == cls.__name__:
+                for i in range(len(node.body)):
+                    body_item = node.body[i]
+                    if (
+                        i + 1 < len(node.body)
+                        and isinstance(body_item, ast.AnnAssign)
+                        and isinstance(body_item.target, ast.Name)
+                    ):
+                        expr_item = node.body[i + 1]
+                        if (
+                            isinstance(expr_item, ast.Expr)
+                            and isinstance(expr_item.value, ast.Constant)
+                            and isinstance(expr_item.value.value, str)
+                        ):
+                            doc_string = expr_item.value.value.strip()
+                            processed_doc_lines = [line.strip() for line in doc_string.splitlines() if line.strip()]
+                            doc_dict[body_item.target.id] = "\n".join(processed_doc_lines)
+
+        return doc_dict

@@ -14,19 +14,30 @@ spec = util.spec_from_file_location("src.config.config_base", module_path.resolv
 module = util.module_from_spec(spec)  # type: ignore
 spec.loader.exec_module(module)  # type: ignore
 ConfigBase = module.ConfigBase
+AttrDocConfigBase = module.AttrDocConfigBase
 
 
 @dataclass
-class SubClass(ConfigBase):
+class SubClass(ConfigBase, AttrDocConfigBase):
     sub_field: str
+    """sub_field is a string field in SubClass"""
 
 
 @dataclass
-class ConfigExample(ConfigBase):
+class ConfigExample(ConfigBase, AttrDocConfigBase):
     int_field: int
+    """The value is integer type"""
     float_field: float
+    """The value is float type"""
     str_field: str
+    """
+    multi-line annotation
+    The value is string type
+    """
     bool_field: bool
+    """
+    The value is boolean type
+    """
     list_field: list[int]
     set_field: set[str]
     tuple_field: tuple[int, str]
@@ -174,3 +185,25 @@ def test_multiple_exceptions(config_data, expected_exception, expected_message):
     assert exc_info.type == expected_exception
     # 确保异常消息包含预期内容
     assert expected_message in str(exc_info.value)
+
+def test_doc_strings():
+    config_data = {
+        "int_field": 42,
+        "float_field": 3.14,
+        "str_field": "example",
+        "bool_field": True,
+        "list_field": [1, 2, 3],
+        "set_field": ["a", "b", "c"],
+        "tuple_field": [7, "seven"],
+        "dict_field": {"key1": 1, "key2": 2},
+        "sub_class": {"sub_field": "sub_value"},
+    }
+    
+    config = ConfigExample.from_dict(config_data)
+    field_docs = config.field_docs
+    assert field_docs["int_field"] == "The value is integer type"
+    assert field_docs["float_field"] == "The value is float type"
+    assert field_docs["str_field"] == "multi-line annotation\nThe value is string type"
+    assert field_docs["bool_field"] == "The value is boolean type"
+    field_docs_sub = config.sub_class.field_docs
+    assert field_docs_sub["sub_field"] == "sub_field is a string field in SubClass"
