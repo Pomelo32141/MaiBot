@@ -4,7 +4,7 @@ from pathlib import Path
 import ast
 import inspect
 
-T = TypeVar("T", bound="ConfigBase")
+T = TypeVar("T", bound="ConfigContentBase")
 
 TOML_DICT_TYPE = {
     int,
@@ -17,8 +17,8 @@ TOML_DICT_TYPE = {
 
 
 @dataclass
-class ConfigBase:
-    """配置类的基类"""
+class ConfigContentBase:
+    """配置类内容控制的基类"""
 
     @classmethod
     def from_dict(cls: Type[T], data: dict[str, Any]) -> T:
@@ -59,6 +59,7 @@ class ConfigBase:
 
     @classmethod
     def _convert_field(cls, value: Any, field_type: Type[Any]) -> Any:
+        # sourcery skip: low-code-quality
         """
         转换字段值为指定类型
 
@@ -69,7 +70,7 @@ class ConfigBase:
         """
 
         # 如果是嵌套的 dataclass，递归调用 from_dict 方法
-        if isinstance(field_type, type) and issubclass(field_type, ConfigBase):
+        if isinstance(field_type, type) and issubclass(field_type, ConfigContentBase):
             if not isinstance(value, dict):
                 raise TypeError(f"Expected a dictionary for {field_type.__name__}, got {type(value).__name__}")
             return field_type.from_dict(value)
@@ -88,7 +89,7 @@ class ConfigBase:
                 if (
                     field_type_args
                     and isinstance(field_type_args[0], type)
-                    and issubclass(field_type_args[0], ConfigBase)
+                    and issubclass(field_type_args[0], ConfigContentBase)
                 ):
                     return [field_type_args[0].from_dict(item) for item in value]
                 return [cls._convert_field(item, field_type_args[0]) for item in value]
@@ -148,7 +149,9 @@ class ConfigBase:
 
 
 @dataclass
-class AttrDocConfigBase:
+class AttrDocBase:
+    """解析字段说明的基类"""
+
     def __post_init__(self):
         self.field_docs = self._get_field_docs()  # 全局仅获取一次并保留
 
@@ -160,42 +163,54 @@ class AttrDocConfigBase:
         :param cls: 配置类
         :return: 字段说明字典，键为字段名，值为说明字符串
         """
-        # 获取目标类的代码文件
+        class_source = cls._get_class_source()
+        class_node = cls._find_class_node(class_source)
+        return cls._extract_field_docs(class_node)
+
+    @classmethod
+    def _get_class_source(cls) -> str:
         class_file = inspect.getfile(cls)
-        class_source = Path(class_file).read_text(encoding="utf-8")
+        return Path(class_file).read_text(encoding="utf-8")
 
-        # 解析源代码
+    @classmethod
+    def _find_class_node(cls, class_source: str) -> ast.ClassDef:
         tree = ast.parse(class_source)
-        doc_dict: dict[str, str] = {}
-
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef) and node.name == cls.__name__:
-                class_body = node.body
-                for i in range(len(class_body)):
-                    body_item = class_body[i]
-                    if isinstance(body_item, ast.FunctionDef) and body_item.name != "__post_init__":
-                        raise AttributeError(
-                            f"Methods are not allowed in AttrDocConfigBase subclasses except __post_init__, found {str(body_item.name)}"
-                        ) from None
-                    if (
-                        i + 1 < len(class_body)
-                        and isinstance(body_item, ast.AnnAssign)
-                        and isinstance(body_item.target, ast.Name)
-                    ):
-                        expr_item = class_body[i + 1]
-                        if (
-                            isinstance(expr_item, ast.Expr)
-                            and isinstance(expr_item.value, ast.Constant)
-                            and isinstance(expr_item.value.value, str)
-                        ):
-                            doc_string = expr_item.value.value.strip()
-                            processed_doc_lines = [line.strip() for line in doc_string.splitlines()]
-                            while processed_doc_lines and not processed_doc_lines[0]:
-                                # 去除头部空行
-                                processed_doc_lines.pop(0)
-                            while processed_doc_lines and not processed_doc_lines[-1]:
-                                # 去除尾部空行
-                                processed_doc_lines.pop()
-                            doc_dict[body_item.target.id] = "\n".join(processed_doc_lines)
+                return node
+        raise AttributeError(f"Class {cls.__name__} not found in source.")
 
+    @classmethod
+    def _extract_field_docs(cls, class_node: ast.ClassDef) -> dict[str, str]:
+        doc_dict: dict[str, str] = {}
+        class_body = class_node.body
+        for i in range(len(class_body)):
+            body_item = class_body[i]
+            if isinstance(body_item, ast.FunctionDef) and body_item.name != "__post_init__":
+                raise AttributeError(
+                    f"Methods are not allowed in AttrDocBase subclasses except __post_init__, found {str(body_item.name)}"
+                ) from None
+            if (
+                i + 1 < len(class_body)
+                and isinstance(body_item, ast.AnnAssign)
+                and isinstance(body_item.target, ast.Name)
+            ):
+                expr_item = class_body[i + 1]
+                if (
+                    isinstance(expr_item, ast.Expr)
+                    and isinstance(expr_item.value, ast.Constant)
+                    and isinstance(expr_item.value.value, str)
+                ):
+                    doc_string = expr_item.value.value.strip()
+                    processed_doc_lines = [line.strip() for line in doc_string.splitlines()]
+                    while processed_doc_lines and not processed_doc_lines[0]:
+                        processed_doc_lines.pop(0)
+                    while processed_doc_lines and not processed_doc_lines[-1]:
+                        processed_doc_lines.pop()
+                    doc_dict[body_item.target.id] = "\n".join(processed_doc_lines)
         return doc_dict
+
+
+@dataclass
+class ConfigBase(ConfigContentBase, AttrDocBase):
+    """继承自ConfigContentBase和AttrDocBase的基类，方便类型检查"""

@@ -4,17 +4,16 @@
 from typing import Optional
 from dataclasses import dataclass, field
 from pathlib import Path
-from importlib import util
 import tomlkit
 import pytest
+import sys
 
 # 测试对象导入
-module_path = Path(__file__).parent.parent / "src" / "config" / "config_base.py"
-spec = util.spec_from_file_location("src.config.config_base", module_path.resolve().absolute())
-module = util.module_from_spec(spec)  # type: ignore
-spec.loader.exec_module(module)  # type: ignore
-ConfigBase = module.ConfigBase
-AttrDocConfigBase = module.AttrDocConfigBase
+PROJECT_ROOT: Path = Path(__file__).parent.parent.absolute().resolve()
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "src" / "config"))
+
+from src.config.config_base import ConfigBase  # noqa: E402
 
 standard_config_data = {
     "int_field": 42,
@@ -30,13 +29,13 @@ standard_config_data = {
 
 
 @dataclass
-class SubClass(ConfigBase, AttrDocConfigBase):
+class SubClass(ConfigBase):
     sub_field: str
     """sub_field is a string field in SubClass"""
 
 
 @dataclass
-class ConfigExample(ConfigBase, AttrDocConfigBase):
+class ConfigExample(ConfigBase):
     int_field: int
     """The value is integer type"""
     float_field: float
@@ -60,7 +59,7 @@ class ConfigExample(ConfigBase, AttrDocConfigBase):
 
 
 @dataclass
-class ErrorConfig(ConfigBase, AttrDocConfigBase):
+class ErrorConfig(ConfigBase):
     value: int
 
     def a_method(self):  # 应该抛出异常
@@ -68,7 +67,7 @@ class ErrorConfig(ConfigBase, AttrDocConfigBase):
 
 
 @dataclass
-class GoodConfig(ConfigBase, AttrDocConfigBase):
+class GoodConfig(ConfigBase):
     value: int
 
     def __post_init__(self):  # 唯一允许的方法
@@ -190,7 +189,7 @@ def test_doc_strings():
             ErrorConfig,
             {"value": 10},
             AttributeError,
-            "Methods are not allowed in AttrDocConfigBase subclasses except __post_init__",
+            "Methods are not allowed in AttrDocBase subclasses except __post_init__",
         ),
         (GoodConfig, {"value": 10}, None, ""),
     ],

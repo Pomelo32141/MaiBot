@@ -1,0 +1,14 @@
+[inner]
+version = "test_version, should be ignored"
+ 
+[sub_config]
+detail = "This is a detail field" # Detail field for testing
+
+[sub_config2]
+value = 10 # Value field for testing
+list_field = [1, 2, 3] # List field for testing
+multi_comment_field = "example"
+# This is a multi-comment field for testing
+# The comment spans multiple lines, which should appear as multi-line comments.
+
+field_after_multi_comment = "after" # Field after multi-comment to test ordering, should have a whitespace above.
