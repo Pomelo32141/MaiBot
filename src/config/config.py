@@ -8,6 +8,22 @@ from .official_configs import (
     PersonalityConfig,
     RelationshipConfig,
     ChatConfig,
+    MessageReceiveConfig,
+    MemoryConfig,
+    ExpressionConfig,
+    ToolConfig,
+    MoodConfig,
+    VoiceConfig,
+    EmojiConfig,
+    KeywordReactionConfig,
+    ResponsePostProcessConfig,
+    ChineseTypoConfig,
+    ResponseSplitterConfig,
+    TelemetryConfig,
+    DebugConfig,
+    ExperimentalConfig,
+    MaimMessageConfig,
+    LPMMKnowledgeConfig
 )
 from .config_base import ConfigBase
 from .config_utils import recursive_parse_item_to_table
@@ -45,7 +61,54 @@ class Config(ConfigBase):
 
     chat: ChatConfig
     """聊天配置类"""
-
+    
+    message_receive: MessageReceiveConfig
+    """消息接收配置类"""
+    
+    memory: MemoryConfig
+    """记忆配置类"""
+    
+    expression: ExpressionConfig
+    """表达配置类"""
+    
+    tool: ToolConfig
+    """工具配置类"""
+    
+    mood: MoodConfig
+    """情绪配置类"""
+    
+    voice: VoiceConfig
+    """语音配置类"""
+    
+    emoji: EmojiConfig
+    """表情包配置类"""
+    
+    keyword_reaction: KeywordReactionConfig
+    """关键词反应配置类"""
+    
+    response_post_process: ResponsePostProcessConfig
+    """回复后处理配置类"""
+    
+    chinese_typo: ChineseTypoConfig
+    """中文错别字生成器配置类"""
+    
+    response_splitter: ResponseSplitterConfig
+    """回复分割器配置类"""
+    
+    telemetry: TelemetryConfig
+    """遥测配置类"""
+    
+    debug: DebugConfig
+    """调试配置类"""
+    
+    experimental: ExperimentalConfig
+    """实验性功能配置类"""
+    
+    maim_message: MaimMessageConfig
+    """maim_message配置类"""
+    
+    lpmm_knowledge: LPMMKnowledgeConfig
+    """LPMM知识库配置类"""
 
 def load_config_from_file(config_path: Path) -> Config:
     """从文件加载配置
