@@ -5,7 +5,7 @@ Version 0.1.9 - 2025-10-19
 - [x] 使用 `toml` 作为配置文件格式
 - [x] <del>合理使用注释说明当前配置作用</del>（提案）
 - [x] 使用 python 方法作为配置项说明（提案）
-    - [ ] 取消`bot_config_template.toml`
+    - [x] 取消`bot_config_template.toml`
     - [ ] 取消`model_config_template.toml`
 - [x] 配置类中的所有原子项目应该只包含以下类型: `str`, `int`, `float`, `bool`, `list`, `dict`, `set`, `tuple`
     - [ ] 暂时禁止使用 `Union` 类型（尚未支持解析）
@@ -43,11 +43,11 @@ class Config:
 - [x] 方案三（个人推荐）
 ```python
 import ast, inspect
-class AttrDocConfigBase:
+class AttrDocBase:
     ...
 from dataclasses import dataclass, field
 @dataclass
-class Config(ConfigBase, AttrDocConfigBase):
+class Config(ConfigBase, AttrDocBase):
     value: str = field(default="default_value")
     """配置项说明"""
 ```
@@ -58,7 +58,7 @@ class Config(ConfigBase, AttrDocConfigBase):
 - [ ] 文件监视器
     - [ ] 监视文件变化
         - [ ] 使用 `watchdog` 监视配置文件变化（提案）
-        - [ ] 备选提案：使用纯轮询监视文件变化
+        - [ ] <del>备选提案：使用纯轮询监视文件变化</del>
     - [ ] 使用Hash检查文件变化
     - [ ] 防抖处理
 - [ ] 配置管理器
@@ -209,7 +209,7 @@ class FileWatcher:
         pass
 ```
 #### 配置文件写入
-- [ ] 将当前文件写入toml文件
+- [x] 将当前文件写入toml文件
 
 
 ## 消息部分设计
@@ -375,12 +375,13 @@ class FileWatcher:
 - [ ] `put_cache(**kwargs, *, _component_name: str)` 方法
     - [ ] 设计为父类的方法，插件继承后使用
     - [ ] `_component_name` 指定当前组件名称，由MaiNext自动传入
-    
 - [ ] `get_cache` 方法
 - [ ] `need_cache` 变量管理是否调用缓存结果
     - [ ] 仅在设置为True时为插件创立缓存空间
 ### Events依赖机制（提案）
-通过Events的互相依赖完成链式任务
+- [ ] 通过Events的互相依赖完成链式任务
+- [ ] 设计动态调整events_handler执行顺序的机制 (感谢@OctAutumn老师！伟大，无需多言)
+    - [ ] 作为API暴露，方便用户使用
 ### 正式的插件依赖管理系统
 - [ ] requirements.txt分析
 - [ ] python_dependencies分析
@@ -390,6 +391,7 @@ class FileWatcher:
 #### Events 设计
 - [ ] 设计events.api
     - [ ] `emit(type: EventType | str, * , **kwargs)` 广播事件，使用关键字参数保证传入正确
+    - [ ] `order_change` 动态调整事件处理器执行顺序
 #### 组件控制API更新
 - [ ] 增加可以更改组件属性的方法
     - [ ] 验证组件属性的存在
@@ -412,6 +414,12 @@ SYSTEM_CONSTANTS = SystemConstants()
 #### 配置文件API设计
 - [ ] 正确表达配置文件结构
 - [ ] 同时也能表达插件配置文件
+#### 自动API文档生成系统
+通过解析插件代码生成API文档
+- [ ] 设计文档生成器 `APIDocumentationGenerator`
+    - [ ] 解析插件代码(AST, inspect, 仿照AttrDocBase)
+    - [ ] 提取类和方法的docstring
+    - [ ] 生成Markdown格式的文档
 ---
 
 ## 表达方式模块设计

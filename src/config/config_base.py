@@ -162,7 +162,6 @@ class ConfigContentBase:
             raise TypeError(f"Cannot convert {type(value).__name__} to {field_type.__name__}") from e
 
 
-@dataclass
 class AttrDocBase:
     """解析字段说明的基类"""
 
