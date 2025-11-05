@@ -61,7 +61,7 @@ class FileWatcher:
         self.bot_config_path: Path = BOT_CONFIG_PATH
         self.model_config_path: Path = MODEL_CONFIG_PATH
 
-        self.watch_tasks: dict[Path, asyncio.Task] = {}
+        self.watch_tasks: dict[Path, tuple[asyncio.Task, asyncio.Event, int]] = {}
 
     async def register_callback(
         self,
@@ -89,7 +89,7 @@ class FileWatcher:
                 self.type_callbacks[wt].add(callback)
         if watch_path:
             for path in watch_path:
-                path = path.resolve().absolute()
+                path = path.absolute().resolve()
                 await self._add_path(path)
                 self.path_callbacks.setdefault(path, set()).add(callback)
         uuid_str = str(uuid.uuid4())
@@ -101,13 +101,13 @@ class FileWatcher:
         watch_path, watch_type, callback = self.callable_registration.get(uuid, ([], [], None))
         if not callback or not (watch_path or watch_type):
             logger.error(f"尝试注销不存在的回调函数或者函数监视为空，UUID: {uuid}")
-            raise FileNotFoundError("尝试注销不存在的回调函数或者函数监视为空")
+            raise ValueError("尝试注销不存在的回调函数或者函数监视为空")
         for path in watch_path:
-            path = path.resolve().absolute()
+            path = path.absolute().resolve()
             if path in self.path_callbacks and callback in self.path_callbacks[path]:
                 self.path_callbacks[path].remove(callback)
+                await self._remove_path(path)
                 if not self.path_callbacks[path]:
-                    await self._remove_path(path)
                     del self.path_callbacks[path]
         for wt in watch_type:
             if wt in self.type_callbacks and callback in self.type_callbacks[wt]:
@@ -124,7 +124,7 @@ class FileWatcher:
                 await self._call_corresponding_callbacks(callback, changed_path, change_type)
             return
 
-        while changed_path != PROJECT_ROOT.parent.resolve().absolute():
+        while changed_path != PROJECT_ROOT.parent.absolute().resolve():
             # 逐级向上查找路径对应的回调函数
             for callback in self.path_callbacks.get(changed_path, []):
                 await self._call_corresponding_callbacks(callback, changed_path, change_type)
@@ -150,27 +150,48 @@ class FileWatcher:
 
     async def _add_path(self, path: Path) -> bool:
         """添加监视路径"""
-        if path in self.watch_tasks:
-            logger.warning(f"路径已在监视列表中: {path}")
+        watch_dir = path.absolute().resolve() if path.is_dir() else path.parent.absolute().resolve()
+        if watch_dir in self.watch_tasks:
+            self.watch_tasks[watch_dir] = (
+                self.watch_tasks[watch_dir][0],
+                self.watch_tasks[watch_dir][1],
+                self.watch_tasks[watch_dir][2] + 1,
+            )
             return False
-        await self._watch_path(path)
+        if not watch_dir.exists():
+            # 如果监视不存在的文件路径watchfiles会报错
+            raise FileNotFoundError(f"尝试监视不存在的路径: {watch_dir}")
+        await self._watch_path(watch_dir)
         return True
 
     async def _remove_path(self, path: Path) -> bool:
         """移除监视路径"""
-        if path not in self.watch_tasks:
-            logger.warning(f"尝试移除未监视的路径: {path}")
+        watch_dir = path.absolute().resolve() if path.is_dir() else path.parent.absolute().resolve()
+        if watch_dir not in self.watch_tasks:
+            logger.warning(f"尝试移除未监视的路径: {watch_dir}")
             return False
-        task = self.watch_tasks[path]
-        task.cancel()
-        await asyncio.wait_for(asyncio.gather(task, return_exceptions=True), timeout=15.0)
-        del self.watch_tasks[path]
+        if self.watch_tasks[watch_dir][2] > 1:
+            self.watch_tasks[watch_dir] = (
+                self.watch_tasks[watch_dir][0],
+                self.watch_tasks[watch_dir][1],
+                self.watch_tasks[watch_dir][2] - 1,
+            )
+            return True
+        task, event, _ = self.watch_tasks[watch_dir]
+        event.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.wait_for(asyncio.gather(task, return_exceptions=True), timeout=0.3)
+        del self.watch_tasks[watch_dir]
+        logger.info(f"已停止监视路径: {watch_dir}")
         return True
 
     async def _watch_path(self, path: Path) -> None:
         """进行路径监视"""
+        logger.info(f"开始监视路径: {path}")
         task = asyncio.create_task(self._path_observer(path))
-        self.watch_tasks[path] = task
+        event = asyncio.Event()
+        self.watch_tasks[path] = (task, event, 1)
 
     async def _path_observer(self, path: Path):
         """使用watchfiles监视路径变化"""
@@ -178,7 +199,7 @@ class FileWatcher:
             for change, changed_path_str in changes:
                 changed_path = Path(changed_path_str)
                 wt: Optional[WatchType] = None
-                resolved = changed_path.resolve().absolute()
+                resolved = changed_path.absolute().resolve()
                 logger.info(f"检测到文件变化: {changed_path}，变化类型: {change.name}")
                 if resolved == self.bot_config_path:
                     wt = WatchType.BOT_CONFIG_CHANGE

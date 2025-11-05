@@ -24,4 +24,4 @@ structlog>=25.4.0
 tomlkit>=0.13.3
 urllib3>=2.5.0
 uvicorn>=0.35.0
-watchdog>=6.0.0
+watchfiles>=1.1.1

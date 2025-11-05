@@ -60,8 +60,9 @@ class Config(ConfigBase, AttrDocBase):
     - [ ] 监视文件变化
         - [ ] 使用 `watchfiles` 监视配置文件变化（提案）
         - [ ] <del>备选提案：使用纯轮询监视文件变化</del>
-    - [ ] 使用Hash检查文件变化
+    - [ ] <del>使用Hash检查文件变化</del>（`watchfiles`实现）
     - [ ] 防抖处理(使用`watchfiles`的防抖)
+    - [ ] 重新分发监视事件，正确监视文件变化
 - [ ] 配置管理器
     - [ ] 配置文件读取和加载
     - [ ] 重载配置
