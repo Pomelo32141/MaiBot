@@ -6,7 +6,7 @@ Version 0.2.2 - 2025-11-05
 - [x] <del>合理使用注释说明当前配置作用</del>（提案）
 - [x] 使用 python 方法作为配置项说明（提案）
     - [x] 取消`bot_config_template.toml`
-    - [ ] 取消`model_config_template.toml`
+    - [x] 取消`model_config_template.toml`
 - [x] 配置类中的所有原子项目应该只包含以下类型: `str`, `int`, `float`, `bool`, `list`, `dict`, `set`
     - [ ] 暂时禁止使用 `Union` 类型（尚未支持解析）
     - [ ] 不建议使用`tuple`类型，使用时会发出警告，考虑使用嵌套`dataclass`替代
@@ -56,22 +56,22 @@ class Config(ConfigBase, AttrDocBase):
 ### 配置文件实现热重载
 
 #### 整体架构设计
-- [ ] 文件监视器
-    - [ ] 监视文件变化
-        - [ ] 使用 `watchfiles` 监视配置文件变化（提案）
+- [x] 文件监视器
+    - [x] 监视文件变化
+        - [x] 使用 `watchfiles` 监视配置文件变化（提案）
         - [ ] <del>备选提案：使用纯轮询监视文件变化</del>
-    - [ ] <del>使用Hash检查文件变化</del>（`watchfiles`实现）
-    - [ ] 防抖处理(使用`watchfiles`的防抖)
-    - [ ] 重新分发监视事件，正确监视文件变化
+    - [x] <del>使用Hash检查文件变化</del>（`watchfiles`实现）
+    - [x] 防抖处理(使用`watchfiles`的防抖)
+    - [x] 重新分发监视事件，正确监视文件变化
 - [ ] 配置管理器
-    - [ ] 配置文件读取和加载
+    - [x] 配置文件读取和加载
     - [ ] 重载配置
     - [ ] 管理全部配置数据
     - [ ] `validate_config` 方法
-- [ ] 回调管理器
-    - [ ] `callback` 注册与注销
+- [ ] <del>回调管理器</del>(合并到文件监视器中)
+    - [x] `callback` 注册与注销
     - [ ] <del>按优先级执行回调（提案）</del>
-    - [ ] 错误隔离
+    - [x] 错误隔离
     - [ ] 锁机制
 
 #### 工作流程
@@ -393,7 +393,7 @@ class FileWatcher:
     - [ ] 修改组件属性
 #### 全局常量API设计
 - [ ] 设计 `api.constants` 模块
-    - [ ] 提供全局常量访问
+    - [x] 提供全局常量访问
     - [ ] 设计常量注册和注销方法
     - [ ] 系统内置常量通过`dataclass`的`frozen=True`实现不可变
     - [ ] 方便调用设计

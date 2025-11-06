@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field, fields
 from pathlib import Path
+from typing import TypeVar
+from datetime import datetime
 import tomlkit
-
+import sys
 
 from .official_configs import (
     BotConfig,
@@ -23,15 +25,13 @@ from .official_configs import (
     DebugConfig,
     ExperimentalConfig,
     MaimMessageConfig,
-    LPMMKnowledgeConfig
+    LPMMKnowledgeConfig,
 )
+from .model_configs import ModelInfo, ModelTaskConfig, APIProvider
 from .config_base import ConfigBase
-from .config_utils import recursive_parse_item_to_table
-
-MMC_VERSION: str = "0.12.0"
-CONFIG_VERSION: str = "7.0.0"
-PROJECT_ROOT: Path = Path(__file__).parent.parent.parent.absolute().resolve()
-CONFIG_DIR: Path = PROJECT_ROOT / "configs"
+from .config_utils import recursive_parse_item_to_table, output_config_changes, compare_versions
+from src.plugins_system.api.constants import BOT_CONFIG_PATH, MODEL_CONFIG_PATH
+from src.common.logger import get_logger
 
 """
 如果你想要修改配置文件，请递增version的值
@@ -41,6 +41,13 @@ CONFIG_DIR: Path = PROJECT_ROOT / "configs"
     次版本号：配置文件内容大更新
     修订号：配置文件内容小更新
 """
+MMC_VERSION: str = "0.12.0"
+CONFIG_VERSION: str = "6.18.4"  # TODO: 更新配置文件版本号，现在暂时与原来对齐方便查看变动
+MODEL_CONFIG_VERSION: str = "1.7.7"  # TODO: 更新模型配置文件版本号，现在暂时与原来对齐方便查看变动
+
+logger = get_logger("config")
+
+T = TypeVar("T", bound="ConfigBase")
 
 
 @dataclass
@@ -50,65 +57,105 @@ class Config(ConfigBase):
     MMC_VERSION: str = field(default=MMC_VERSION, repr=False, init=False)
     """硬编码的版本信息"""
 
-    bot: BotConfig
+    bot: BotConfig = field(default_factory=BotConfig)
     """机器人配置类"""
 
-    personality: PersonalityConfig
+    personality: PersonalityConfig = field(default_factory=PersonalityConfig)
     """人格配置类"""
 
-    relationship: RelationshipConfig
+    relationship: RelationshipConfig = field(default_factory=RelationshipConfig)
     """关系配置类"""
 
-    chat: ChatConfig
+    chat: ChatConfig = field(default_factory=ChatConfig)
     """聊天配置类"""
-    
-    message_receive: MessageReceiveConfig
+
+    message_receive: MessageReceiveConfig = field(default_factory=MessageReceiveConfig)
     """消息接收配置类"""
-    
-    memory: MemoryConfig
+
+    memory: MemoryConfig = field(default_factory=MemoryConfig)
     """记忆配置类"""
-    
-    expression: ExpressionConfig
+
+    expression: ExpressionConfig = field(default_factory=ExpressionConfig)
     """表达配置类"""
-    
-    tool: ToolConfig
+
+    tool: ToolConfig = field(default_factory=ToolConfig)
     """工具配置类"""
-    
-    mood: MoodConfig
+
+    mood: MoodConfig = field(default_factory=MoodConfig)
     """情绪配置类"""
-    
-    voice: VoiceConfig
+
+    voice: VoiceConfig = field(default_factory=VoiceConfig)
     """语音配置类"""
-    
-    emoji: EmojiConfig
+
+    emoji: EmojiConfig = field(default_factory=EmojiConfig)
     """表情包配置类"""
-    
-    keyword_reaction: KeywordReactionConfig
+
+    keyword_reaction: KeywordReactionConfig = field(default_factory=KeywordReactionConfig)
     """关键词反应配置类"""
-    
-    response_post_process: ResponsePostProcessConfig
+
+    response_post_process: ResponsePostProcessConfig = field(default_factory=ResponsePostProcessConfig)
     """回复后处理配置类"""
-    
-    chinese_typo: ChineseTypoConfig
+
+    chinese_typo: ChineseTypoConfig = field(default_factory=ChineseTypoConfig)
     """中文错别字生成器配置类"""
-    
-    response_splitter: ResponseSplitterConfig
+
+    response_splitter: ResponseSplitterConfig = field(default_factory=ResponseSplitterConfig)
     """回复分割器配置类"""
-    
-    telemetry: TelemetryConfig
+
+    telemetry: TelemetryConfig = field(default_factory=TelemetryConfig)
     """遥测配置类"""
-    
-    debug: DebugConfig
+
+    debug: DebugConfig = field(default_factory=DebugConfig)
     """调试配置类"""
-    
-    experimental: ExperimentalConfig
+
+    experimental: ExperimentalConfig = field(default_factory=ExperimentalConfig)
     """实验性功能配置类"""
-    
-    maim_message: MaimMessageConfig
+
+    maim_message: MaimMessageConfig = field(default_factory=MaimMessageConfig)
     """maim_message配置类"""
-    
-    lpmm_knowledge: LPMMKnowledgeConfig
+
+    lpmm_knowledge: LPMMKnowledgeConfig = field(default_factory=LPMMKnowledgeConfig)
     """LPMM知识库配置类"""
+
+
+@dataclass
+class ModelConfig(ConfigBase):
+    """模型配置类"""
+
+    models: list[ModelInfo] = field(default_factory=list)
+    """模型配置列表"""
+
+    model_task_config: ModelTaskConfig = field(default_factory=ModelTaskConfig)
+    """模型任务配置"""
+
+    api_providers: list[APIProvider] = field(default_factory=list)
+    """API提供商列表"""
+
+    def __post_init__(self):
+        if not self.models:
+            raise ValueError("模型列表不能为空，请在配置中设置有效的模型列表。")
+        if not self.api_providers:
+            raise ValueError("API提供商列表不能为空，请在配置中设置有效的API提供商列表。")
+
+        # 检查API提供商名称是否重复
+        provider_names = [provider.name for provider in self.api_providers]
+        if len(provider_names) != len(set(provider_names)):
+            raise ValueError("API提供商名称存在重复，请检查配置文件。")
+
+        # 检查模型名称是否重复
+        model_names = [model.name for model in self.models]
+        if len(model_names) != len(set(model_names)):
+            raise ValueError("模型名称存在重复，请检查配置文件。")
+
+        self.api_providers_dict = {provider.name: provider for provider in self.api_providers}
+        self.models_dict = {model.name: model for model in self.models}
+
+        for model in self.models:
+            if not model.model_identifier:
+                raise ValueError(f"模型 '{model.name}' 的 model_identifier 不能为空")
+            if not model.api_provider or model.api_provider not in self.api_providers_dict:
+                raise ValueError(f"模型 '{model.name}' 的 api_provider '{model.api_provider}' 不存在")
+
 
 @dataclass
 class AttributeData:
@@ -117,23 +164,73 @@ class AttributeData:
     redundant_attributes: list[str] = field(default_factory=list)
     """多余的属性列表"""
 
-def load_config_from_file(config_path: Path) -> Config:
-    """从文件加载配置
 
+class ConfigManager:
+    """总配置管理类"""
+
+    def __init__(self):
+        self.bot_config_path: Path = BOT_CONFIG_PATH
+        self.model_config_path: Path = MODEL_CONFIG_PATH
+
+    def initialize(self):
+        logger.info(f"MaiCore当前版本: {MMC_VERSION}")
+        logger.info("正在品鉴配置文件...")
+        self.global_config: Config = self._load_global_config()
+        self.model_config: ModelConfig = self._load_model_config()
+        logger.info("非常的新鲜，非常的美味！")
+
+    def _load_global_config(self) -> Config:
+        config, updated = load_config_from_file(Config, self.bot_config_path, CONFIG_VERSION)
+        if updated:
+            sys.exit(0)  # 先直接退出
+        return config
+
+    def _load_model_config(self) -> ModelConfig:
+        config, updated = load_config_from_file(ModelConfig, self.model_config_path, MODEL_CONFIG_VERSION)
+        if updated:
+            sys.exit(0)  # 先直接退出
+        return config
+
+    def get_global_config(self) -> Config:
+        return self.global_config
+
+    def get_model_config(self) -> ModelConfig:
+        return self.model_config
+
+
+def generate_new_config_file(config_class: type[T], config_path: Path, inner_config_version: str) -> None:
+    """生成新的配置文件
+
+    :param config_class: 配置类
     :param config_path: 配置文件路径
-    :return: 配置对象
+    :param inner_config_version: 配置文件版本号
     """
+    config = config_class()
+    write_config_to_file(config, config_path, inner_config_version)
+
+
+def load_config_from_file(config_class: type[T], config_path: Path, new_ver: str) -> tuple[T, bool]:
     attribute_data = AttributeData()
     with open(config_path, "r", encoding="utf-8") as f:
         config_data = tomlkit.load(f)
+    old_ver: str = config_data["inner"]["version"]  # type: ignore
+    config_data.remove("inner")  # 移除 inner 部分，避免干扰后续处理
     try:
-        return Config.from_dict(config_data, attribute_data)
+        updated: bool = False
+        target_config = config_class.from_dict(config_data, attribute_data)
+        if compare_versions(old_ver, new_ver):
+            output_config_changes(attribute_data, logger, old_ver, new_ver, config_path.name)
+            write_config_to_file(target_config, config_path, new_ver)
+            updated = True
+        return target_config, updated
     except Exception as e:
-        # logger.critical("配置文件解析失败")
+        logger.critical("模型配置文件解析失败")
         raise e
 
 
-def write_config_to_file(config: Config, config_path: Path, override_repr: bool = False) -> None:
+def write_config_to_file(
+    config: ConfigBase, config_path: Path, inner_config_version: str, override_repr: bool = False
+) -> None:
     """将配置写入文件
 
     :param config: 配置对象
@@ -144,7 +241,7 @@ def write_config_to_file(config: Config, config_path: Path, override_repr: bool 
 
     # 首先写入配置文件版本信息
     version_table = tomlkit.table()
-    version_table.add("version", CONFIG_VERSION)
+    version_table.add("version", inner_config_version)
     full_config_data.add("inner", version_table)
 
     # 递归解析配置项为表格
@@ -157,6 +254,17 @@ def write_config_to_file(config: Config, config_path: Path, override_repr: bool 
         else:
             raise TypeError("配置写入只支持ConfigBase子类")
 
+    # 备份旧文件
+    if config_path.exists():
+        backup_root = config_path.parent / "old"
+        backup_root.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = backup_root / f"{config_path.stem}_{timestamp}.toml"
+        config_path.replace(backup_path)
+
     # 写入文件
     with open(config_path, "w", encoding="utf-8") as f:
         tomlkit.dump(full_config_data, f)
+
+
+config_manager = ConfigManager()

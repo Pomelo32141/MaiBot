@@ -4,10 +4,19 @@
 from typing import Optional
 from dataclasses import dataclass, field
 from pathlib import Path
+from importlib import util
 import tomlkit
 import pytest
 import sys
 import copy
+
+# 日志记录器模块解决
+TEST_ROOT: Path = Path(__file__).parent.absolute().resolve()
+logger_file = TEST_ROOT / "logger.py"
+spec = util.spec_from_file_location("src.common.logger", logger_file)
+module = util.module_from_spec(spec)  # type: ignore
+spec.loader.exec_module(module)  # type: ignore
+sys.modules["src.common.logger"] = module
 
 # 测试对象导入
 PROJECT_ROOT: Path = Path(__file__).parent.parent.absolute().resolve()

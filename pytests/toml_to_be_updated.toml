@@ -1,0 +1,6 @@
+[inner]
+version = "10.0.0"
+
+[sub_update]
+detail = "detail"
+removed_field = "to_be_removed"

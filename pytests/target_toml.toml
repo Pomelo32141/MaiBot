@@ -1,6 +1,6 @@
 [inner]
-version = "test_version, should be ignored"
- 
+version = "10.0.0"
+
 [sub_config]
 detail = "This is a detail field" # Detail field for testing
 

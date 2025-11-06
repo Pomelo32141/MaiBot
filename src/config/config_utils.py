@@ -1,10 +1,12 @@
 from dataclasses import fields, Field
-from typing import Any, get_args, get_origin
+from typing import Any, get_args, get_origin, TYPE_CHECKING
 from tomlkit import items
 import tomlkit
 
 from .config_base import ConfigBase
 
+if TYPE_CHECKING:
+    from .config import AttributeData
 
 def recursive_parse_item_to_table(config: ConfigBase, is_inline_table: bool = False) -> items.Table | items.InlineTable:
     # sourcery skip: merge-else-if-into-elif, reintroduce-else
@@ -80,3 +82,20 @@ def convert_field(config_item: Field[Any], value: Any):
         return toml_sub_table
     else:
         raise TypeError(f"Unsupported field type for {config_item.name}: {config_item.type}")
+
+def output_config_changes(attr_data: "AttributeData", logger, old_ver: str, new_ver: str, file_name: str):
+    """输出配置变更信息"""
+    logger.info("-------- 配置文件变更信息 --------")
+    logger.info(f"新增配置数量: {len(attr_data.missing_attributes)}")
+    for attr in attr_data.missing_attributes:
+        logger.info(f"配置文件中新增配置项: {attr}")
+    logger.info(f"移除配置数量: {len(attr_data.redundant_attributes)}")
+    for attr in attr_data.redundant_attributes:
+        logger.warning(f"移除配置项: {attr}")
+    logger.info(f"{file_name}配置文件已经更新. Old: {old_ver} -> New: {new_ver} 建议检查新配置文件中的内容, 以免丢失重要信息")
+    
+def compare_versions(old_ver: str, new_ver: str) -> bool:
+    """比较版本号，返回是否有更新"""
+    old_parts = [int(part) for part in old_ver.split(".")]
+    new_parts = [int(part) for part in new_ver.split(".")]
+    return new_parts > old_parts
