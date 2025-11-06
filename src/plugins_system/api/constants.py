@@ -5,7 +5,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class _SystemConstants:
     PROJECT_ROOT: Path = Path(__file__).parent.parent.parent.parent.absolute().resolve()
-    CONFIG_DIR: Path = PROJECT_ROOT / "configs"
+    CONFIG_DIR: Path = PROJECT_ROOT / "config"
     BOT_CONFIG_PATH: Path = (CONFIG_DIR / "bot_config.toml").resolve().absolute()
     MODEL_CONFIG_PATH: Path = (CONFIG_DIR / "model_config.toml").resolve().absolute()
     PLUGINS_DIR: Path = (PROJECT_ROOT / "plugins").resolve().absolute()
