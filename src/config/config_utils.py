@@ -34,7 +34,7 @@ def comment_doc_string(
     """将配置类中的注释加入toml表格中"""
     if doc_string := config.field_docs.get(field_name, ""):
         doc_string_splitted = doc_string.splitlines()
-        if len(doc_string_splitted) == 1:
+        if len(doc_string_splitted) == 1 and not doc_string_splitted[0].strip().startswith("_wrap_"):
             if isinstance(toml_table[field_name], bool):
                 # tomlkit 故意设计的行为，布尔值不能直接添加注释
                 value = toml_table[field_name]
@@ -44,6 +44,8 @@ def comment_doc_string(
             else:
                 toml_table[field_name].comment(doc_string_splitted[0])
         else:
+            if doc_string_splitted[0].strip().startswith("_wrap_"):
+                doc_string_splitted[0] = doc_string_splitted[0].replace("_wrap_", "", 1).strip()
             for line in doc_string_splitted:
                 toml_table.add(tomlkit.comment(line))
             toml_table.add(tomlkit.nl())

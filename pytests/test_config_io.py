@@ -47,6 +47,7 @@ class SubConfig2(ConfigBase):
     nested_list_config: list[SubConfig] = field(default_factory=lambda: [])
     """Nested list of SubConfig for testing"""
     nested_tuple_config: tuple[SubConfig, str] = field(default_factory=lambda: (SubConfig(detail="nested"), "nested"))
+    """_wrap_This comment should be on a new line with a blank line below"""
     nested_dict_config: dict[str, SubConfig] = field(default_factory=lambda: {"key": SubConfig(detail="dict_nested")})
     """Nested dict of SubConfig for testing"""
     

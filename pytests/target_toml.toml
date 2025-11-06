@@ -14,5 +14,7 @@ multi_comment_field = "example"
 field_after_multi_comment = "after" # Field after multi-comment to test ordering, should have a whitespace above.
 nested_list_config = [{detail = "nested1"}, {detail = "nested2"}] # Nested list of SubConfig for testing
 nested_tuple_config = [{detail = "nested"}, "nested"]
+# This comment should be on a new line with a blank line below
+
 nested_dict_config = {key = {detail = "dict_nested"}} # Nested dict of SubConfig for testing
 bool_field = true # Boolean field for testing
