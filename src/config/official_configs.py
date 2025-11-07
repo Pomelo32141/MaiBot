@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Literal
+from datetime import datetime
 import re
 
 from .config_base import ConfigBase
@@ -32,7 +33,9 @@ class PersonalityConfig(ConfigBase):
     personality: str = "是一个女大学生，现在在读大二，会刷贴吧。"
     """人格，建议120字以内，描述人格特质和身份特征"""
 
-    reply_style: str = "请回复的平淡一些，简短一些，说中文，不要刻意突出自身学科背景。可以参考贴吧，知乎和微博的回复风格。"
+    reply_style: str = (
+        "请回复的平淡一些，简短一些，说中文，不要刻意突出自身学科背景。可以参考贴吧，知乎和微博的回复风格。"
+    )
     """表达风格，描述麦麦说话的表达风格，表达习惯"""
 
     interest: str = "对技术相关话题，游戏和动漫相关话题感兴趣，也对日常话题感兴趣，不喜欢太过沉重严肃的话题"
@@ -364,6 +367,51 @@ class DebugConfig(ConfigBase):
 
     show_prompt: bool = False
     """是否显示prompt"""
+
+    date_style: str = "%Y-%m-%d %H:%M:%S"
+    """日志时间格式"""
+
+    log_level_style: Literal["full", "compact", "lite"] = "lite"
+    """日志级别样式，full为完整样式，compact为紧凑样式，lite为简洁样式"""
+
+    color_text: Literal["full", "lite", "none"] = "full"
+    """日志颜色样式，full为完整颜色，lite为简洁颜色，none为无颜色"""
+
+    console_log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    """控制台日志级别"""
+
+    file_log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "DEBUG"
+    """文件日志级别"""
+
+    suppress_libraries: list[str] = field(
+        default_factory=lambda: [
+            "faiss",
+            "httpx",
+            "urllib3",
+            "asyncio",
+            "websockets",
+            "httpcore",
+            "requests",
+            "peewee",
+            "openai",
+            "uvicorn",
+            "jieba",
+        ]
+    )
+    """_wrap_需要关闭日志输出的第三方库列表"""
+
+    library_log_levels: dict[str, Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]] = field(
+        default_factory=lambda: {"aiohttp": "WARNING"}
+    )
+    """_wrap_需要设置特定日志级别的第三方库字典"""
+
+    def __post_init__(self):
+        # 验证时间格式
+        try:
+            datetime.now().strftime(self.date_style)
+        except Exception:
+            raise ValueError(f"无效的日期格式: {self.date_style}") from None
+        return super().__post_init__()
 
 
 @dataclass

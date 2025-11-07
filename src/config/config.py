@@ -42,7 +42,7 @@ from src.common.logger import get_logger
     修订号：配置文件内容小更新
 """
 MMC_VERSION: str = "0.12.0"
-CONFIG_VERSION: str = "6.18.4"  # TODO: 更新配置文件版本号，现在暂时与原来对齐方便查看变动
+CONFIG_VERSION: str = "7.18.4"  # TODO: 更新配置文件版本号，现在暂时与原来对齐方便查看变动
 MODEL_CONFIG_VERSION: str = "1.7.7"  # TODO: 更新模型配置文件版本号，现在暂时与原来对齐方便查看变动
 
 logger = get_logger("config")
@@ -186,7 +186,7 @@ class ConfigManager:
         return config
 
     def _load_model_config(self) -> ModelConfig:
-        config, updated = load_config_from_file(ModelConfig, self.model_config_path, MODEL_CONFIG_VERSION)
+        config, updated = load_config_from_file(ModelConfig, self.model_config_path, MODEL_CONFIG_VERSION, True)
         if updated:
             sys.exit(0)  # 先直接退出
         return config
@@ -209,7 +209,9 @@ def generate_new_config_file(config_class: type[T], config_path: Path, inner_con
     write_config_to_file(config, config_path, inner_config_version)
 
 
-def load_config_from_file(config_class: type[T], config_path: Path, new_ver: str) -> tuple[T, bool]:
+def load_config_from_file(
+    config_class: type[T], config_path: Path, new_ver: str, override_repr: bool = False
+) -> tuple[T, bool]:
     attribute_data = AttributeData()
     with open(config_path, "r", encoding="utf-8") as f:
         config_data = tomlkit.load(f)
@@ -220,7 +222,7 @@ def load_config_from_file(config_class: type[T], config_path: Path, new_ver: str
         target_config = config_class.from_dict(config_data, attribute_data)
         if compare_versions(old_ver, new_ver):
             output_config_changes(attribute_data, logger, old_ver, new_ver, config_path.name)
-            write_config_to_file(target_config, config_path, new_ver)
+            write_config_to_file(target_config, config_path, new_ver, override_repr)
             updated = True
         return target_config, updated
     except Exception as e:
@@ -250,13 +252,15 @@ def write_config_to_file(
             continue
         config_field = getattr(config, config_item.name)
         if isinstance(config_field, ConfigBase):
-            full_config_data.add(config_item.name, recursive_parse_item_to_table(config_field))
+            full_config_data.add(
+                config_item.name, recursive_parse_item_to_table(config_field, override_repr=override_repr)
+            )
         elif isinstance(config_field, list):
             aot = tomlkit.aot()
             for item in config_field:
                 if not isinstance(item, ConfigBase):
                     raise TypeError("配置写入只支持ConfigBase子类")
-                aot.append(recursive_parse_item_to_table(item))
+                aot.append(recursive_parse_item_to_table(item, override_repr=override_repr))
             full_config_data.add(config_item.name, aot)
         else:
             raise TypeError("配置写入只支持ConfigBase子类")

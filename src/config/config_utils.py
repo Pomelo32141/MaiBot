@@ -9,20 +9,22 @@ if TYPE_CHECKING:
     from .config import AttributeData
 
 
-def recursive_parse_item_to_table(config: ConfigBase, is_inline_table: bool = False) -> items.Table | items.InlineTable:
+def recursive_parse_item_to_table(
+    config: ConfigBase, is_inline_table: bool = False, override_repr: bool = False
+) -> items.Table | items.InlineTable:
     # sourcery skip: merge-else-if-into-elif, reintroduce-else
     """递归解析配置项为表格"""
     config_table = tomlkit.table()
     if is_inline_table:
         config_table = tomlkit.inline_table()
     for config_item in fields(config):
-        if not config_item.repr:
+        if not config_item.repr and not override_repr:
             continue
         value = getattr(config, config_item.name)
         if isinstance(value, ConfigBase):
-            config_table.add(config_item.name, recursive_parse_item_to_table(value))
+            config_table.add(config_item.name, recursive_parse_item_to_table(value, override_repr=override_repr))
         else:
-            config_table.add(config_item.name, convert_field(config_item, value))
+            config_table.add(config_item.name, convert_field(config_item, value, override_repr=override_repr))
         if not is_inline_table:
             config_table = comment_doc_string(config, config_item.name, config_table)
     return config_table
@@ -52,7 +54,7 @@ def comment_doc_string(
     return toml_table
 
 
-def convert_field(config_item: Field[Any], value: Any):
+def convert_field(config_item: Field[Any], value: Any, override_repr: bool = False):
     # sourcery skip: extract-method
     """将非可直接表达类转换为toml可表达类"""
     field_type_origin = get_origin(config_item.type)
@@ -64,7 +66,7 @@ def convert_field(config_item: Field[Any], value: Any):
         toml_list = tomlkit.array()
         if field_type_args and isinstance(field_type_args[0], type) and issubclass(field_type_args[0], ConfigBase):
             for item in value:
-                toml_list.append(recursive_parse_item_to_table(item, True))
+                toml_list.append(recursive_parse_item_to_table(item, True, override_repr))
         else:
             for item in value:
                 toml_list.append(item)
@@ -73,7 +75,7 @@ def convert_field(config_item: Field[Any], value: Any):
         toml_list = tomlkit.array()
         for field_arg, item in zip(field_type_args, value, strict=True):
             if isinstance(field_arg, type) and issubclass(field_arg, ConfigBase):
-                toml_list.append(recursive_parse_item_to_table(item, True))
+                toml_list.append(recursive_parse_item_to_table(item, True, override_repr))
             else:
                 toml_list.append(item)
         return toml_list
@@ -86,7 +88,7 @@ def convert_field(config_item: Field[Any], value: Any):
             raise TypeError(f"TOML only supports string keys for tables, got {key_type} for {config_item.name}")
         for k, v in value.items():
             if isinstance(value_type, type) and issubclass(value_type, ConfigBase):
-                toml_sub_table.add(k, recursive_parse_item_to_table(v, True))
+                toml_sub_table.add(k, recursive_parse_item_to_table(v, True, override_repr))
             else:
                 toml_sub_table.add(k, v)
         return toml_sub_table
