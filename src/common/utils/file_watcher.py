@@ -181,7 +181,10 @@ class FileWatcher:
         event.set()
         if not task.done():
             task.cancel()
-        await asyncio.wait_for(asyncio.gather(task, return_exceptions=True), timeout=0.3)
+        try:
+            await asyncio.wait_for(asyncio.gather(task, return_exceptions=True), timeout=0.3)
+        except asyncio.TimeoutError:
+            logger.error(f"取消监视任务超时: {watch_dir}, 直接移除引用")
         del self.watch_tasks[watch_dir]
         logger.info(f"已停止监视路径: {watch_dir}")
         return True

@@ -50,7 +50,7 @@ class SubConfig2(ConfigBase):
     """_wrap_This comment should be on a new line with a blank line below"""
     nested_dict_config: dict[str, SubConfig] = field(default_factory=lambda: {"key": SubConfig(detail="dict_nested")})
     """Nested dict of SubConfig for testing"""
-    
+
     bool_field: bool = True
     """Boolean field for testing"""
 
@@ -90,6 +90,19 @@ class UpdateTestConfig(ConfigBase):
     sub_update: SubUpdateTestConfig = field(default_factory=SubUpdateTestConfig)
     sub_update2: SubUpdateTestConfig2 = field(default_factory=SubUpdateTestConfig2)
     """sub_update2 is a new field added in the updated version"""
+
+
+@dataclass
+class NonReprConfig(ConfigBase):
+    secret_data: str = field(default="top_secret", repr=False)
+    """This field should not appear in the output if not overridden"""
+    non_secret_data: str = "public_info"
+    """This field can appear in the output"""
+
+
+@dataclass
+class ListBaseConfig(ConfigBase):
+    items: list[NonReprConfig] = field(default_factory=lambda: [])
 
 
 standard_config = {
@@ -175,4 +188,46 @@ def test_update_config(tmp_path: Path, capsys):
         "",
         "[sub_update2]",
         "missing_field = 5 # This field is missing in the old version",
+    ]
+
+
+def test_list_base_config(tmp_path: Path):
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_path = config_dir / "list_base_config.toml"
+    config = ListBaseConfig(items=[NonReprConfig(secret_data="data1"), NonReprConfig(secret_data="data2")])
+    write_config_to_file(config, config_path, "test")
+    with open(config_path, "r", encoding="utf-8") as f:
+        written_config = f.read().splitlines()
+    assert written_config == [
+        "[inner]",
+        'version = "test"',
+        "",
+        "[[items]]",
+        'non_secret_data = "public_info" # This field can appear in the output',
+        "",
+        "[[items]]",
+        'non_secret_data = "public_info" # This field can appear in the output',
+    ]
+
+
+def test_override_non_repr_field(tmp_path: Path):
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_path = config_dir / "list_base_config.toml"
+    config = ListBaseConfig(items=[NonReprConfig(secret_data="data1"), NonReprConfig(secret_data="data2")])
+    write_config_to_file(config, config_path, "test2", True)
+    with open(config_path, "r", encoding="utf-8") as f:
+        written_config = f.read().splitlines()
+    assert written_config == [
+        "[inner]",
+        'version = "test2"',
+        "",
+        "[[items]]",
+        'secret_data = "data1" # This field should not appear in the output if not overridden',
+        'non_secret_data = "public_info" # This field can appear in the output',
+        "",
+        "[[items]]",
+        'secret_data = "data2" # This field should not appear in the output if not overridden',
+        'non_secret_data = "public_info" # This field can appear in the output',
     ]
