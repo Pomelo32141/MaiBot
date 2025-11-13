@@ -132,7 +132,6 @@ class ActionPlanner:
 
         self.last_obs_time_mark = 0.0
 
-
         self.plan_log: List[Tuple[str, float, Union[List[ActionPlannerInfo], str]]] = []
 
     def find_message_by_id(
@@ -288,7 +287,9 @@ class ActionPlanner:
             loop_start_time=loop_start_time,
         )
 
-        logger.info(f"{self.log_prefix}Planner:{reasoning}。选择了{len(actions)}个动作: {' '.join([a.action_type for a in actions])}")
+        logger.info(
+            f"{self.log_prefix}Planner:{reasoning}。选择了{len(actions)}个动作: {' '.join([a.action_type for a in actions])}"
+        )
 
         self.add_plan_log(reasoning, actions)
 
@@ -298,7 +299,7 @@ class ActionPlanner:
         self.plan_log.append((reasoning, time.time(), actions))
         if len(self.plan_log) > 20:
             self.plan_log.pop(0)
-    
+
     def add_plan_excute_log(self, result: str):
         self.plan_log.append(("", time.time(), result))
         if len(self.plan_log) > 20:
@@ -306,16 +307,15 @@ class ActionPlanner:
 
     def get_plan_log_str(self) -> str:
         plan_log_str = ""
-        for reasoning, time, content in self.plan_log:
+        for reasoning, ts, content in self.plan_log:
             if isinstance(content, list) and all(isinstance(action, ActionPlannerInfo) for action in content):
-                time = datetime.fromtimestamp(time).strftime("%H:%M:%S")
-                plan_log_str += f"{time}:{reasoning}|你使用了{','.join([action.action_type for action in content])}\n"
+                time_str = datetime.fromtimestamp(ts).strftime("%H:%M:%S")
+                plan_log_str += f"{time_str}:{reasoning}|你使用了{','.join([action.action_type for action in content])}\n"
             else:
-                time = datetime.fromtimestamp(time).strftime("%H:%M:%S")
-                plan_log_str += f"{time}:{content}\n"
-                
-        return plan_log_str
+                time_str = datetime.fromtimestamp(ts).strftime("%H:%M:%S")
+                plan_log_str += f"{time_str}:{content}\n"
 
+        return plan_log_str
 
     async def build_planner_prompt(
         self,
@@ -328,8 +328,7 @@ class ActionPlanner:
     ) -> tuple[str, List[Tuple[str, "DatabaseMessages"]]]:
         """构建 Planner LLM 的提示词 (获取模板并填充数据)"""
         try:
-
-            actions_before_now_block=self.get_plan_log_str()
+            actions_before_now_block = self.get_plan_log_str()
 
             # 构建聊天上下文描述
             chat_context_description = "你现在正在一个群聊中"
@@ -436,7 +435,7 @@ class ActionPlanner:
             for require_item in action_info.action_require:
                 require_text += f"- {require_item}\n"
             require_text = require_text.rstrip("\n")
-            
+
             if not action_info.parallel_action:
                 parallel_text = "(当选择这个动作时，请不要选择其他动作)"
             else:
@@ -463,7 +462,7 @@ class ActionPlanner:
         filtered_actions: Dict[str, ActionInfo],
         available_actions: Dict[str, ActionInfo],
         loop_start_time: float,
-    ) -> Tuple[str,List[ActionPlannerInfo]]:
+    ) -> Tuple[str, List[ActionPlannerInfo]]:
         """执行主规划器"""
         llm_content = None
         actions: List[ActionPlannerInfo] = []
@@ -488,7 +487,7 @@ class ActionPlanner:
 
         except Exception as req_e:
             logger.error(f"{self.log_prefix}LLM 请求执行失败: {req_e}")
-            return f"LLM 请求失败，模型出现问题: {req_e}",[
+            return f"LLM 请求失败，模型出现问题: {req_e}", [
                 ActionPlannerInfo(
                     action_type="no_reply",
                     reasoning=f"LLM 请求失败，模型出现问题: {req_e}",
@@ -506,7 +505,11 @@ class ActionPlanner:
                     logger.debug(f"{self.log_prefix}从响应中提取到{len(json_objects)}个JSON对象")
                     filtered_actions_list = list(filtered_actions.items())
                     for json_obj in json_objects:
-                        actions.extend(self._parse_single_action(json_obj, message_id_list, filtered_actions_list, extracted_reasoning))
+                        actions.extend(
+                            self._parse_single_action(
+                                json_obj, message_id_list, filtered_actions_list, extracted_reasoning
+                            )
+                        )
                 else:
                     # 尝试解析为直接的JSON
                     logger.warning(f"{self.log_prefix}LLM没有返回可用动作: {llm_content}")
@@ -526,7 +529,7 @@ class ActionPlanner:
 
         logger.debug(f"{self.log_prefix}规划器选择了{len(actions)}个动作: {' '.join([a.action_type for a in actions])}")
 
-        return extracted_reasoning,actions
+        return extracted_reasoning, actions
 
     def _create_no_reply(self, reasoning: str, available_actions: Dict[str, ActionInfo]) -> List[ActionPlannerInfo]:
         """创建no_reply"""

@@ -93,7 +93,7 @@ class MainSystem:
         asyncio.create_task(get_chat_manager()._auto_save_task())
 
         logger.info("聊天管理器初始化成功")
-        
+
         # 添加记忆管理任务
         await async_task_manager.add_task(MemoryManagementTask())
         logger.info("记忆管理任务已启动")

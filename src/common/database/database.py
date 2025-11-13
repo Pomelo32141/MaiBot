@@ -34,7 +34,7 @@ DATABASE_URL = f"sqlite:///{_DB_FILE}"
 def set_sqlite_pragma(dbapi_conn, connection_record):
     """
     为每个新的数据库连接设置 SQLite PRAGMA。
-    
+
     这些设置优化了并发性能和数据安全性:
     - journal_mode=WAL: 启用预写式日志,提高并发性能
     - cache_size: 设置缓存大小为 64MB
@@ -73,29 +73,29 @@ SessionLocal = sessionmaker(
 def get_session(auto_commit: bool = True) -> Generator[Session, None, None]:
     """
     获取数据库会话的上下文管理器 (推荐使用,自动提交)。
-    
+
     使用示例:
         # 方式1: 自动提交 (推荐 - 默认行为)
         with get_session() as session:
             user = User(name="张三", age=25)
             session.add(user)
             # 退出时自动 commit,无需手动调用
-        
+
         # 方式2: 手动控制事务 (高级用法)
         with get_session(auto_commit=False) as session:
             user1 = User(name="张三", age=25)
             user2 = User(name="李四", age=30)
             session.add_all([user1, user2])
             session.commit()  # 手动提交
-    
+
     Args:
         auto_commit: 是否在退出上下文时自动提交。
                     True (默认): 自动提交,适合大多数场景
                     False: 手动控制,适合复杂事务
-    
+
     Yields:
         Session: SQLAlchemy 数据库会话
-        
+
     注意:
         - 会话会在退出上下文时自动关闭
         - 如果发生异常,会自动回滚事务
@@ -119,27 +119,27 @@ def get_session(auto_commit: bool = True) -> Generator[Session, None, None]:
 def get_session_manual() -> Generator[Session, None, None]:
     """
     获取数据库会话的上下文管理器 (手动提交模式)。
-    
+
     这是 get_session(auto_commit=False) 的便捷别名。
     适合需要精确控制事务的高级场景。
-    
+
     使用示例:
         with get_session_manual() as session:
             try:
                 user1 = User(name="张三")
                 session.add(user1)
-                
+
                 # 中间可能有复杂的业务逻辑
-                
+
                 user2 = User(name="李四")
                 session.add(user2)
-                
+
                 # 手动提交
                 session.commit()
             except Exception:
                 session.rollback()
                 raise
-    
+
     Yields:
         Session: SQLAlchemy 数据库会话
     """
@@ -156,14 +156,14 @@ def get_session_manual() -> Generator[Session, None, None]:
 def get_db() -> Generator[Session, None, None]:
     """
     获取数据库会话的生成器函数。
-    
+
     适用于依赖注入场景(如 FastAPI)。
-    
+
     使用示例 (FastAPI):
         @app.get("/users/{user_id}")
         def read_user(user_id: int, db: Session = Depends(get_db)):
             return db.get(User, user_id)
-    
+
     Yields:
         Session: SQLAlchemy 数据库会话
     """
