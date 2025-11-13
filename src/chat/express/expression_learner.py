@@ -416,7 +416,9 @@ class ExpressionLearner:
 
         return matched_expressions
 
-    async def learn_expression(self, num: int = 10) -> Optional[List[Tuple[str, str, str, List[str]]]]:
+    async def learn_expression(
+        self, num: int = 10
+    ) -> Optional[List[Tuple[str, str, str, List[str]]]]:
         """从指定聊天流学习表达方式
 
         Args:
@@ -472,7 +474,9 @@ class ExpressionLearner:
         split_matched_expressions_w_emb = []
 
         for situation, style, context, context_words in split_matched_expressions:
-            split_matched_expressions_w_emb.append((self.chat_id, situation, style, context, context_words))
+            split_matched_expressions_w_emb.append(
+                (self.chat_id, situation, style, context, context_words)
+            )
 
         return split_matched_expressions_w_emb
 

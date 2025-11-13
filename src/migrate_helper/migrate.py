@@ -4,7 +4,6 @@ from src.common.logger import get_logger
 
 logger = get_logger("migrate")
 
-
 async def set_all_person_known():
     """
     将person_info库中所有记录的is_known字段设置为True

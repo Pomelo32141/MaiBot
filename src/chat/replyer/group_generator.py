@@ -262,18 +262,19 @@ class DefaultReplyer:
             expression_habits_block += f"{style_habits_str}\n"
 
         return f"{expression_habits_title}\n{expression_habits_block}", selected_ids
-
+    
     async def build_mood_state_prompt(self) -> str:
         """构建情绪状态提示"""
         if not global_config.mood.enable_mood:
             return ""
         mood_state = await mood_manager.get_mood_by_chat_id(self.chat_stream.stream_id).get_mood()
         return f"你现在的心情是：{mood_state}"
-
+    
     async def build_memory_block(self) -> str:
-        """构建记忆块"""
+        """构建记忆块
+        """
         # if not global_config.memory.enable_memory:
-        # return ""
+            # return ""
 
         if global_memory_chest.get_chat_memories_as_string(self.chat_stream.stream_id):
             return f"你有以下记忆：\n{global_memory_chest.get_chat_memories_as_string(self.chat_stream.stream_id)}"
@@ -283,7 +284,7 @@ class DefaultReplyer:
     async def build_question_block(self) -> str:
         """构建问题块"""
         # if not global_config.question.enable_question:
-        # return ""
+            # return ""
         questions = global_conflict_tracker.get_questions_by_chat_id(self.chat_stream.stream_id)
         questions_str = ""
         for question in questions:
@@ -292,6 +293,7 @@ class DefaultReplyer:
             return f"你在聊天中，有以下问题想要得到解答：\n{questions_str}"
         else:
             return ""
+    
 
     async def build_tool_info(self, chat_history: str, sender: str, target: str, enable_tool: bool = True) -> str:
         """构建工具信息块
@@ -319,7 +321,7 @@ class DefaultReplyer:
                 for tool_result in tool_results:
                     tool_name = tool_result.get("tool_name", "unknown")
                     content = tool_result.get("content", "")
-                    tool_result.get("type", "tool_result")
+                    result_type = tool_result.get("type", "tool_result")
 
                     tool_info_str += f"- 【{tool_name}】: {content}\n"
 
@@ -359,45 +361,45 @@ class DefaultReplyer:
 
     def _replace_picids_with_descriptions(self, text: str) -> str:
         """将文本中的[picid:xxx]替换为具体的图片描述
-
+        
         Args:
             text: 包含picid标记的文本
-
+            
         Returns:
             替换后的文本
         """
         # 匹配 [picid:xxxxx] 格式
         pic_pattern = r"\[picid:([^\]]+)\]"
-
+        
         def replace_pic_id(match: re.Match) -> str:
             pic_id = match.group(1)
             description = translate_pid_to_description(pic_id)
             return f"[图片：{description}]"
-
+        
         return re.sub(pic_pattern, replace_pic_id, text)
 
     def _analyze_target_content(self, target: str) -> Tuple[bool, bool, str, str]:
         """分析target内容类型（基于原始picid格式）
-
+        
         Args:
             target: 目标消息内容（包含[picid:xxx]格式）
-
+            
         Returns:
             Tuple[bool, bool, str, str]: (是否只包含图片, 是否包含文字, 图片部分, 文字部分)
         """
         if not target or not target.strip():
             return False, False, "", ""
-
+            
         # 检查是否只包含picid标记
         picid_pattern = r"\[picid:[^\]]+\]"
         picid_matches = re.findall(picid_pattern, target)
-
+        
         # 移除所有picid标记后检查是否还有文字内容
         text_without_picids = re.sub(picid_pattern, "", target).strip()
-
+        
         has_only_pics = len(picid_matches) > 0 and not text_without_picids
         has_text = bool(text_without_picids)
-
+        
         # 提取图片部分（转换为[图片:描述]格式）
         pic_part = ""
         if picid_matches:
@@ -412,7 +414,7 @@ class DefaultReplyer:
                 else:
                     pic_descriptions.append(f"[图片:{description}]")
             pic_part = "".join(pic_descriptions)
-
+        
         return has_only_pics, has_text, pic_part, text_without_picids
 
     async def build_keywords_reaction_prompt(self, target: Optional[str]) -> str:
@@ -623,7 +625,7 @@ class DefaultReplyer:
             available_actions = {}
         chat_stream = self.chat_stream
         chat_id = chat_stream.stream_id
-        bool(chat_stream.group_info)
+        is_group_chat = bool(chat_stream.group_info)
         platform = chat_stream.platform
 
         user_id = "用户ID"
@@ -639,10 +641,10 @@ class DefaultReplyer:
             target = reply_message.processed_plain_text
 
         target = replace_user_references(target, chat_stream.platform, replace_bot_name=True)
-
+        
         # 在picid替换之前分析内容类型（防止prompt注入）
         has_only_pics, has_text, pic_part, text_part = self._analyze_target_content(target)
-
+        
         # 将[picid:xxx]替换为具体的图片描述
         target = self._replace_picids_with_descriptions(target)
 
@@ -813,10 +815,10 @@ class DefaultReplyer:
 
         sender, target = self._parse_reply_target(reply_to)
         target = replace_user_references(target, chat_stream.platform, replace_bot_name=True)
-
+        
         # 在picid替换之前分析内容类型（防止prompt注入）
         has_only_pics, has_text, pic_part, text_part = self._analyze_target_content(target)
-
+        
         # 将[picid:xxx]替换为具体的图片描述
         target = self._replace_picids_with_descriptions(target)
 
@@ -858,7 +860,9 @@ class DefaultReplyer:
                         )
                     elif has_text and pic_part:
                         # 既有图片又有文字
-                        reply_target_block = f"现在{sender}发送了图片：{pic_part}，并说：{text_part}。引起了你的注意，你想要在群里发言或者回复这条消息。"
+                        reply_target_block = (
+                            f"现在{sender}发送了图片：{pic_part}，并说：{text_part}。引起了你的注意，你想要在群里发言或者回复这条消息。"
+                        )
                     else:
                         # 只包含文字
                         reply_target_block = (
@@ -875,9 +879,7 @@ class DefaultReplyer:
                         reply_target_block = f"现在{sender}发送的图片：{pic_part}。引起了你的注意，针对这条消息回复。"
                     elif has_text and pic_part:
                         # 既有图片又有文字
-                        reply_target_block = (
-                            f"现在{sender}发送了图片：{pic_part}，并说：{text_part}。引起了你的注意，针对这条消息回复。"
-                        )
+                        reply_target_block = f"现在{sender}发送了图片：{pic_part}，并说：{text_part}。引起了你的注意，针对这条消息回复。"
                     else:
                         # 只包含文字
                         reply_target_block = f"现在{sender}说的:{text_part}。引起了你的注意，针对这条消息回复。"

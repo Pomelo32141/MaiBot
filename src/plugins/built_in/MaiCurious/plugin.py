@@ -14,6 +14,7 @@ from src.memory_system.questions import global_conflict_tracker
 logger = get_logger("question_actions")
 
 
+
 class CuriousAction(BaseAction):
     """频率调节动作 - 调整聊天发言频率"""
 
@@ -22,14 +23,14 @@ class CuriousAction(BaseAction):
 
     # 动作基本信息
     action_name = "make_question"
-
+    
     action_description = "提出一个问题，当有人反驳你的观点，或其他人之间有观点冲突时使用"
 
     # 动作参数定义
     action_parameters = {
         "question": "对存在疑问的信息提出一个问题，描述全面，完整的描述涉及的概念和问题",
     }
-
+    
     action_require = [
         "当聊天记录中的概念存在逻辑上的矛盾时使用",
         "当有人反对或否定你提出的信息时使用",
@@ -46,14 +47,12 @@ class CuriousAction(BaseAction):
         try:
             if len(global_conflict_tracker.question_tracker_list) > 1:
                 return False, "当前已有问题，请先解答完再提问，不要再使用make_question动作"
-
+            
             question = self.action_data.get("question", "")
 
             # 存储问题到冲突追踪器
             if question:
-                await global_conflict_tracker.record_conflict(
-                    conflict_content=question, start_following=True, chat_id=self.chat_id
-                )
+                await global_conflict_tracker.record_conflict(conflict_content=question, start_following=True,chat_id=self.chat_id)
                 logger.info(f"已存储问题到冲突追踪器: {question}")
                 await self.store_action_info(
                     action_build_into_prompt=True,

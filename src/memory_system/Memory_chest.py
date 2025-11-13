@@ -19,26 +19,27 @@ from .memory_utils import (
     check_title_exists_fuzzy,
     get_all_titles,
     get_memory_titles_by_chat_id_weighted,
+
 )
 
 logger = get_logger("memory")
 
-
 class MemoryChest:
     def __init__(self):
+        
         self.LLMRequest = LLMRequest(
             model_set=model_config.model_task_config.utils_small,
             request_type="memory_chest",
         )
-
+        
         self.LLMRequest_build = LLMRequest(
             model_set=model_config.model_task_config.utils,
             request_type="memory_chest_build",
         )
-
+        
         self.memory_build_threshold = 20
         self.memory_size_limit = global_config.memory.max_memory_size
-
+  
         self.running_content_list = {}  # {chat_id: {"content": running_content, "last_update_time": timestamp, "create_time": timestamp}}
         self.fetched_memory_list = []  # [(chat_id, (question, answer, timestamp)), ...]
 
@@ -58,15 +59,15 @@ class MemoryChest:
             self.running_content_list[chat_id] = {
                 "content": "",
                 "last_update_time": time.time(),
-                "create_time": time.time(),
+                "create_time": time.time()
             }
-
+        
         should_update = True
         if chat_id and chat_id in self.running_content_list:
             last_update_time = self.running_content_list[chat_id]["last_update_time"]
             current_time = time.time()
             # 使用message_api获取消息数量
-            message_list = get_raw_msg_by_timestamp_with_chat(
+            message_list =  get_raw_msg_by_timestamp_with_chat(
                 timestamp_start=last_update_time,
                 timestamp_end=current_time,
                 chat_id=chat_id,
@@ -81,13 +82,10 @@ class MemoryChest:
             should_update = new_messages_count > self.memory_build_threshold or forced_update
 
             if forced_update:
-                logger.debug(
-                    f"chat_id {chat_id} 距离上次更新已 {time_diff_minutes:.1f} 分钟，有 {new_messages_count} 条新消息，强制构建"
-                )
+                logger.debug(f"chat_id {chat_id} 距离上次更新已 {time_diff_minutes:.1f} 分钟，有 {new_messages_count} 条新消息，强制构建")
             else:
-                logger.debug(
-                    f"chat_id {chat_id} 自上次更新后有 {new_messages_count} 条新消息，{'需要' if should_update else '不需要'}更新"
-                )
+                logger.debug(f"chat_id {chat_id} 自上次更新后有 {new_messages_count} 条新消息，{'需要' if should_update else '不需要'}更新")
+
 
         if should_update:
             # 如果有chat_id，先提取对应的running_content
@@ -99,7 +97,8 @@ class MemoryChest:
                 show_actions=False,
                 remove_emoji_stickers=True,
             )
-
+            
+            
             current_running_content = ""
             if chat_id and chat_id in self.running_content_list:
                 current_running_content = self.running_content_list[chat_id]["content"]
@@ -175,10 +174,7 @@ class MemoryChest:
             else:
                 logger.debug(f"记忆仓库构建运行内容 prompt: {prompt}")
 
-            (
-                running_content,
-                (reasoning_content, model_name, tool_calls),
-            ) = await self.LLMRequest_build.generate_response_async(prompt)
+            running_content, (reasoning_content, model_name, tool_calls) = await self.LLMRequest_build.generate_response_async(prompt)
 
             print(f"prompt: {prompt}\n记忆仓库构建运行内容: {running_content}")
 
@@ -192,7 +188,7 @@ class MemoryChest:
                 self.running_content_list[chat_id] = {
                     "content": running_content,
                     "last_update_time": current_time,
-                    "create_time": create_time,
+                    "create_time": create_time
                 }
 
                 # 检查running_content长度是否大于限制
@@ -200,35 +196,36 @@ class MemoryChest:
                     await self._save_to_database_and_clear(chat_id, running_content)
 
                 # 检查是否需要强制保存：create_time超过1800秒且内容大小达到max_memory_size的30%
-                elif current_time - create_time > 1800 and len(running_content) >= self.memory_size_limit * 0.3:
-                    logger.info(
-                        f"chat_id {chat_id} 内容创建时间已超过 {(current_time - create_time) / 60:.1f} 分钟，"
-                        f"内容大小 {len(running_content)} 达到限制的 {int(self.memory_size_limit * 0.3)} 字符，强制保存"
-                    )
+                elif (current_time - create_time > 1800 and
+                      len(running_content) >= self.memory_size_limit * 0.3):
+                    logger.info(f"chat_id {chat_id} 内容创建时间已超过 {(current_time - create_time)/60:.1f} 分钟，"
+                               f"内容大小 {len(running_content)} 达到限制的 {int(self.memory_size_limit * 0.3)} 字符，强制保存")
                     await self._save_to_database_and_clear(chat_id, running_content)
 
-            return running_content
 
+            return running_content
+        
+        
     async def get_answer_by_question(self, chat_id: str = "", question: str = "") -> str:
         """
         根据问题获取答案
         """
         logger.info(f"正在回忆问题答案: {question}")
-
+        
         title = await self.select_title_by_question(question)
-
+        
         if not title:
             return ""
-
+        
         for memory in MemoryChestModel.select():
             if memory.title == title:
-                content = memory.content
-
-        if random.random() < 0.5:
+                content =  memory.content
+                
+        if random.random() < 0.5:        
             type = "要求原文能够较为全面的回答问题"
         else:
             type = "要求提取简短的内容"
-
+            
         prompt = f"""
 目标文段：
 {content}
@@ -244,11 +241,11 @@ class MemoryChest:
             logger.debug(f"记忆仓库获取答案 prompt: {prompt}")
 
         answer, (reasoning_content, model_name, tool_calls) = await self.LLMRequest.generate_response_async(prompt)
-
+        
         if "无有效" in answer or "无有效信息" in answer or "无信息" in answer:
             logger.info(f"没有能够回答{question}的记忆")
             return ""
-
+        
         logger.info(f"记忆仓库对问题 “{question}” 获取答案: {answer}")
 
         # 将问题和答案存到fetched_memory_list
@@ -274,7 +271,7 @@ class MemoryChest:
             memories = []
 
             # 从fetched_memory_list中获取该chat_id的所有记忆
-            for cid, (question, answer, _timestamp) in self.fetched_memory_list:
+            for cid, (question, answer, timestamp) in self.fetched_memory_list:
                 if cid == chat_id:
                     memories.append(f"问题：{question},答案:{answer}")
 
@@ -290,6 +287,7 @@ class MemoryChest:
         except Exception as e:
             logger.error(f"获取chat_id {chat_id} 的记忆时出错: {e}")
             return ""
+
 
     async def select_title_by_question(self, question: str) -> str:
         """
@@ -320,7 +318,8 @@ class MemoryChest:
             logger.info(f"记忆仓库选择标题 prompt: {prompt}")
         else:
             logger.debug(f"记忆仓库选择标题 prompt: {prompt}")
-
+            
+            
         title, (reasoning_content, model_name, tool_calls) = await self.LLMRequest.generate_response_async(prompt)
 
         # 根据 title 获取 titles 里的对应项
@@ -387,15 +386,18 @@ class MemoryChest:
             else:
                 logger.debug(f"记忆仓库生成标题 prompt: {title_prompt}")
 
-            title, (reasoning_content, model_name, tool_calls) = await self.LLMRequest_build.generate_response_async(
-                title_prompt
-            )
+            title, (reasoning_content, model_name, tool_calls) = await self.LLMRequest_build.generate_response_async(title_prompt)
 
+            
             await asyncio.sleep(0.5)
-
+            
             if title:
                 # 保存到数据库
-                MemoryChestModel.create(title=title.strip(), content=content, chat_id=chat_id)
+                MemoryChestModel.create(
+                    title=title.strip(),
+                    content=content,
+                    chat_id=chat_id
+                )
                 logger.info(f"已保存记忆仓库内容，标题: {title.strip()}, chat_id: {chat_id}")
 
                 # 清空对应chat_id的running_content
@@ -407,7 +409,7 @@ class MemoryChest:
 
         except Exception as e:
             logger.error(f"保存记忆仓库内容时出错: {e}")
-
+    
     async def choose_merge_target(self, memory_title: str, chat_id: str = None) -> list[str]:
         """
         选择与给定记忆标题相关的记忆目标
@@ -420,17 +422,17 @@ class MemoryChest:
             list[str]: 选中的记忆内容列表
         """
         try:
-            # 如果提供了chat_id，使用加权抽样
+        # 如果提供了chat_id，使用加权抽样
             all_titles = get_memory_titles_by_chat_id_weighted(chat_id)
             # 剔除掉输入的 memory_title 本身
             all_titles = [title for title in all_titles if title and title.strip() != (memory_title or "").strip()]
-
+            
             content = ""
             display_index = 1
             for title in all_titles:
                 content += f"{display_index}. {title}\n"
                 display_index += 1
-
+            
             prompt = f"""
 所有记忆列表
 {content}
@@ -462,25 +464,22 @@ class MemoryChest:
                 logger.info(f"选择合并目标 prompt: {prompt}")
             else:
                 logger.debug(f"选择合并目标 prompt: {prompt}")
-
-            (
-                merge_target_response,
-                (reasoning_content, model_name, tool_calls),
-            ) = await self.LLMRequest_build.generate_response_async(prompt)
-
+                
+            merge_target_response, (reasoning_content, model_name, tool_calls) = await self.LLMRequest_build.generate_response_async(prompt)
+            
             # 解析JSON响应
             selected_titles = self._parse_merge_target_json(merge_target_response)
-
+            
             # 根据标题查找对应的内容
             selected_contents = self._get_memories_by_titles(selected_titles)
-
+            
             logger.info(f"选择合并目标结果: {len(selected_contents)} 条记忆:{selected_titles}")
-            return selected_titles, selected_contents
-
+            return selected_titles,selected_contents
+            
         except Exception as e:
             logger.error(f"选择合并目标时出错: {e}")
             return []
-
+    
     def _get_memories_by_titles(self, titles: list[str]) -> list[str]:
         """
         根据标题列表查找对应的记忆内容
@@ -525,7 +524,7 @@ class MemoryChest:
         except Exception as e:
             logger.error(f"根据标题查找记忆时出错: {e}")
             return []
-
+    
     def _parse_merged_parts(self, merged_response: str) -> tuple[str, str]:
         """
         解析合并记忆的part1和part2内容
@@ -541,12 +540,12 @@ class MemoryChest:
             import re
 
             # 提取part1内容
-            part1_pattern = r"<part1>(.*?)</part1>"
+            part1_pattern = r'<part1>(.*?)</part1>'
             part1_match = re.search(part1_pattern, merged_response, re.DOTALL)
             part1_content = part1_match.group(1).strip() if part1_match else ""
 
             # 提取part2内容
-            part2_pattern = r"<part2>(.*?)</part2>"
+            part2_pattern = r'<part2>(.*?)</part2>'
             part2_match = re.search(part2_pattern, merged_response, re.DOTALL)
             part2_content = part2_match.group(1).strip() if part2_match else ""
 
@@ -555,7 +554,7 @@ class MemoryChest:
                 if not content:
                     return True
                 # 检查是否只包含"none"或"None"（不区分大小写）
-                return re.match(r"^\s*none\s*$", content, re.IGNORECASE) is not None
+                return re.match(r'^\s*none\s*$', content, re.IGNORECASE) is not None
 
             # 如果包含none，则设置为空字符串
             if is_none_content(part1_content):
@@ -575,17 +574,17 @@ class MemoryChest:
     def _parse_merge_target_json(self, json_text: str) -> list[str]:
         """
         解析choose_merge_target生成的JSON响应
-
+        
         Args:
             json_text: LLM返回的JSON文本
-
+            
         Returns:
             list[str]: 解析出的记忆标题列表
         """
         try:
             # 清理JSON文本，移除可能的额外内容
             repaired_content = repair_json(json_text)
-
+            
             # 尝试直接解析JSON
             try:
                 parsed_data = json.loads(repaired_content)
@@ -608,12 +607,12 @@ class MemoryChest:
                         return []
             except json.JSONDecodeError:
                 pass
-
+            
             # 如果直接解析失败，尝试提取JSON对象
             # 查找所有包含selected_title的JSON对象
             pattern = r'\{[^}]*"selected_title"[^}]*\}'
             matches = re.findall(pattern, repaired_content)
-
+            
             titles = []
             for match in matches:
                 try:
@@ -624,18 +623,18 @@ class MemoryChest:
                             titles.append(value)
                 except json.JSONDecodeError:
                     continue
-
+            
             if titles:
                 return titles
-
+            
             logger.warning(f"无法解析JSON响应: {json_text[:200]}...")
             return []
-
+            
         except Exception as e:
             logger.error(f"解析合并目标JSON时出错: {e}")
             return []
-
-    async def merge_memory(self, memory_list: list[str], chat_id: str = None) -> tuple[str, str]:
+            
+    async def merge_memory(self,memory_list: list[str], chat_id: str = None) -> tuple[str, str]:
         """
         合并记忆
         """
@@ -643,7 +642,7 @@ class MemoryChest:
             content = ""
             for memory in memory_list:
                 content += f"{memory}\n"
-
+            
             prompt = f"""
 以下是多段记忆内容，请将它们进行整合和修改：
 {content}
@@ -681,10 +680,7 @@ class MemoryChest:
             else:
                 logger.debug(f"合并记忆 prompt: {prompt}")
 
-            (
-                merged_memory,
-                (reasoning_content, model_name, tool_calls),
-            ) = await self.LLMRequest_build.generate_response_async(prompt)
+            merged_memory, (reasoning_content, model_name, tool_calls) = await self.LLMRequest_build.generate_response_async(prompt)
 
             # 解析part1和part2
             part1_content, part2_content = self._parse_merged_parts(merged_memory)
@@ -693,14 +689,18 @@ class MemoryChest:
             if part2_content and part2_content.strip() != "none":
                 logger.info(f"合并记忆part2记录冲突内容: {len(part2_content)} 字符")
                 # 记录冲突到数据库
-                await global_conflict_tracker.record_memory_merge_conflict(part2_content, chat_id)
+                await global_conflict_tracker.record_memory_merge_conflict(part2_content,chat_id)
 
             # 处理part1：生成标题并保存
             if part1_content and part1_content.strip() != "none":
                 merged_title = await self._generate_title_for_merged_memory(part1_content)
 
                 # 保存part1到数据库
-                MemoryChestModel.create(title=merged_title, content=part1_content, chat_id=chat_id)
+                MemoryChestModel.create(
+                    title=merged_title,
+                    content=part1_content,
+                    chat_id=chat_id
+                )
 
                 logger.info(f"合并记忆part1已保存: {merged_title}")
 
@@ -711,14 +711,14 @@ class MemoryChest:
         except Exception as e:
             logger.error(f"合并记忆时出错: {e}")
             return "", ""
-
+    
     async def _generate_title_for_merged_memory(self, merged_content: str) -> str:
         """
         为合并后的记忆生成标题
-
+        
         Args:
             merged_content: 合并后的记忆内容
-
+            
         Returns:
             str: 生成的标题
         """
@@ -746,34 +746,32 @@ MutePlugin 是禁言插件的名称
 标题不要分点，不要换行，不要输出其他内容，不要浮夸，以白话简洁的风格输出标题
 请只输出标题，不要输出其他内容：
 """
-
+            
             if global_config.debug.show_prompt:
                 logger.info(f"生成合并记忆标题 prompt: {prompt}")
             else:
                 logger.debug(f"生成合并记忆标题 prompt: {prompt}")
-
-            title_response, (reasoning_content, model_name, tool_calls) = await self.LLMRequest.generate_response_async(
-                prompt
-            )
-
+            
+            title_response, (reasoning_content, model_name, tool_calls) = await self.LLMRequest.generate_response_async(prompt)
+            
             # 清理标题，移除可能的引号或多余字符
             title = title_response.strip().strip('"').strip("'").strip()
-
+            
             if title:
                 # 检查是否存在相似标题
                 if check_title_exists_fuzzy(title, similarity_threshold=0.9):
                     logger.warning(f"生成的标题 '{title}' 与现有标题相似，使用时间戳后缀")
                     title = f"{title}_{int(time.time())}"
-
+                
                 logger.info(f"生成合并记忆标题: {title}")
                 return title
             else:
                 logger.warning("生成合并记忆标题失败，使用默认标题")
                 return f"合并记忆_{int(time.time())}"
-
+                
         except Exception as e:
             logger.error(f"生成合并记忆标题时出错: {e}")
             return f"合并记忆_{int(time.time())}"
-
-
+    
+    
 global_memory_chest = MemoryChest()

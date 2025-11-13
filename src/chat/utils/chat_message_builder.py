@@ -560,6 +560,7 @@ def build_readable_actions(actions: List[DatabaseActionRecords], mode: str = "re
     output_lines = []
     current_time = time.time()
 
+
     for action in actions:
         action_time = action.time or current_time
         action_name = action.action_name or "未知动作"
@@ -586,6 +587,7 @@ def build_readable_actions(actions: List[DatabaseActionRecords], mode: str = "re
 
         line = f"{time_ago_str}，你使用了“{action_name}”，具体内容是：“{action_prompt_display}”"
         output_lines.append(line)
+ 
 
     return "\n".join(output_lines)
 
@@ -1022,9 +1024,7 @@ def build_readable_messages_anonymized(
 
         actions_in_range = (
             ActionRecords.select()
-            .where(
-                (ActionRecords.time >= min_time) & (ActionRecords.time <= max_time) & (ActionRecords.chat_id == chat_id)
-            )
+            .where((ActionRecords.time >= min_time) & (ActionRecords.time <= max_time) & (ActionRecords.chat_id == chat_id))
             .order_by(ActionRecords.time)
         )
         action_after_latest = (

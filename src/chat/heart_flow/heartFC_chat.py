@@ -102,9 +102,10 @@ class HeartFChatting:
 
         self.is_mute = False
 
-        self.last_active_time = time.time()  # 记录上一次非noreply时间
+        self.last_active_time = time.time() # 记录上一次非noreply时间
 
         self.questioned = False
+        
 
     async def start(self):
         """检查是否需要启动主循环，如果未激活则启动。"""
@@ -169,7 +170,7 @@ class HeartFChatting:
             + (f"详情: {'; '.join(timer_strings)}" if timer_strings else "")
         )
 
-    async def _loopbody(self):
+    async def _loopbody(self):  
         recent_messages_list = message_api.get_messages_by_time_in_chat(
             chat_id=self.stream_id,
             start_time=self.last_read_time,
@@ -191,15 +192,11 @@ class HeartFChatting:
             question_probability = 0.001
 
         question_probability = question_probability * global_config.chat.auto_chat_value
-
+        
         # print(f"{self.log_prefix}  questioned: {self.questioned},len: {len(global_conflict_tracker.get_questions_by_chat_id(self.stream_id))}")
-        if (
-            question_probability > 0
-            and not self.questioned
-            and len(global_conflict_tracker.get_questions_by_chat_id(self.stream_id)) == 0
-        ):  # 长久没有回复，可以试试主动发言，提问概率随着时间增加
+        if question_probability > 0 and not self.questioned and len(global_conflict_tracker.get_questions_by_chat_id(self.stream_id)) == 0: #长久没有回复，可以试试主动发言，提问概率随着时间增加
             # logger.info(f"{self.log_prefix} 长久没有回复，可以试试主动发言，概率: {question_probability}")
-            if random.random() < question_probability:  # 30%概率主动发言
+            if random.random() < question_probability: # 30%概率主动发言
                 try:
                     self.questioned = True
                     self.last_active_time = time.time()
@@ -207,11 +204,11 @@ class HeartFChatting:
                     logger.info(f"{self.log_prefix} 长久没有回复，可以试试主动发言，开始生成问题")
                     cycle_timers, thinking_id = self.start_cycle()
                     question_maker = QuestionMaker(self.stream_id)
-                    question, context, conflict_context = await question_maker.make_question()
+                    question, context,conflict_context = await question_maker.make_question()
                     if question:
                         logger.info(f"{self.log_prefix} 问题: {question}")
                         await global_conflict_tracker.track_conflict(question, conflict_context, True, self.stream_id)
-                        await self._lift_question_reply(question, context, cycle_timers, thinking_id)
+                        await self._lift_question_reply(question,context,cycle_timers,thinking_id)
                     else:
                         logger.info(f"{self.log_prefix} 无问题")
                     # self.end_cycle(cycle_timers, thinking_id)
@@ -219,9 +216,10 @@ class HeartFChatting:
                     logger.error(f"{self.log_prefix} 主动提问失败: {e}")
                     print(traceback.format_exc())
 
+
         if len(recent_messages_list) >= 1:
             # for message in recent_messages_list:
-            # print(message.processed_plain_text)
+                # print(message.processed_plain_text)
             # !处理no_reply_until_call逻辑
             if self.no_reply_until_call:
                 for message in recent_messages_list:
@@ -325,13 +323,17 @@ class HeartFChatting:
     ) -> bool:  # sourcery skip: merge-else-if-into-elif, remove-redundant-if
         if recent_messages_list is None:
             recent_messages_list = []
+        reply_text = ""  # 初始化reply_text变量，避免UnboundLocalError
 
         start_time = time.time()
 
+
         async with global_prompt_manager.async_message_scope(self.chat_stream.context.get_template_name()):
             await self.expression_learner.trigger_learning_for_chat()
-
-            await global_memory_chest.build_running_content(chat_id=self.stream_id)
+            
+            await global_memory_chest.build_running_content(chat_id=self.stream_id)   
+            
+            
 
             cycle_timers, thinking_id = self.start_cycle()
             logger.info(f"{self.log_prefix} 开始第{self._cycle_counter}次思考")
@@ -416,6 +418,7 @@ class HeartFChatting:
 
             # 处理执行结果
             reply_loop_info = None
+            reply_text_from_reply = ""
             action_success = False
             action_reply_text = ""
 
@@ -433,7 +436,7 @@ class HeartFChatting:
                 elif result["action_type"] == "reply":
                     if result["success"]:
                         reply_loop_info = result["loop_info"]
-                        result["result"]
+                        reply_text_from_reply = result["result"]
                     else:
                         logger.warning(f"{self.log_prefix} 回复动作执行失败")
 
@@ -450,6 +453,7 @@ class HeartFChatting:
                         "taken_time": time.time(),
                     }
                 )
+                reply_text = reply_text_from_reply
             else:
                 # 没有回复信息，构建纯动作的loop_info
                 loop_info = {
@@ -462,6 +466,7 @@ class HeartFChatting:
                         "taken_time": time.time(),
                     },
                 }
+                reply_text = action_reply_text
 
             self.end_cycle(loop_info, cycle_timers)
             self.print_cycle_info(cycle_timers)
@@ -537,6 +542,7 @@ class HeartFChatting:
             result = await action_handler.execute()
             success, action_text = result
 
+
             return success, action_text
 
         except Exception as e:
@@ -545,26 +551,23 @@ class HeartFChatting:
             return False, ""
 
     async def _lift_question_reply(self, question: str, context: str, cycle_timers: Dict[str, float], thinking_id: str):
-        reason = f'在聊天中：\n{context}\n你对问题"{question}"感到好奇，想要和群友讨论'
+        reason = f"在聊天中：\n{context}\n你对问题\"{question}\"感到好奇，想要和群友讨论"
         new_msg = get_raw_msg_before_timestamp_with_chat(
             chat_id=self.stream_id,
             timestamp=time.time(),
             limit=1,
-        )
+        )  
 
         reply_action_info = ActionPlannerInfo(
-            action_type="reply",
-            reasoning="",
+            action_type="reply", 
+            reasoning= "",
             action_data={},
             action_message=new_msg[0],
             available_actions=None,
             loop_start_time=time.time(),
-            action_reasoning=reason,
-        )
-        self.action_planner.add_plan_log(
-            reasoning=f'你对问题"{question}"感到好奇，想要和群友讨论', actions=[reply_action_info]
-        )
-
+            action_reasoning=reason)
+        self.action_planner.add_plan_log(reasoning=f"你对问题\"{question}\"感到好奇，想要和群友讨论", actions=[reply_action_info])
+        
         success, llm_response = await generator_api.rewrite_reply(
             chat_stream=self.chat_stream,
             reply_data={
@@ -617,6 +620,7 @@ class HeartFChatting:
             "result": f"你提问：{question}",
             "loop_info": loop_info,
         }
+
 
     async def _send_response(
         self,
@@ -690,6 +694,7 @@ class HeartFChatting:
                         action_reasoning=reason,
                     )
 
+
                     return {"action_type": "no_reply", "success": True, "result": "选择不回复", "command": ""}
 
                 elif action_planner_info.action_type == "no_reply_until_call":
@@ -708,12 +713,7 @@ class HeartFChatting:
                         action_name="no_reply_until_call",
                         action_reasoning=reason,
                     )
-                    return {
-                        "action_type": "no_reply_until_call",
-                        "success": True,
-                        "result": "保持沉默，直到有人直接叫的名字",
-                        "command": "",
-                    }
+                    return {"action_type": "no_reply_until_call", "success": True, "result": "保持沉默，直到有人直接叫的名字", "command": ""}
 
                 elif action_planner_info.action_type == "reply":
                     # 直接当场执行reply逻辑
@@ -741,15 +741,18 @@ class HeartFChatting:
                         enable_tool=global_config.tool.enable_tool,
                         request_type="replyer",
                         from_plugin=False,
-                        reply_time_point=action_planner_info.action_data.get("loop_start_time", time.time()),
+                        reply_time_point = action_planner_info.action_data.get("loop_start_time", time.time()),
                     )
 
                     if not success or not llm_response or not llm_response.reply_set:
                         if action_planner_info.action_message:
-                            logger.info(f"对 {action_planner_info.action_message.processed_plain_text} 的回复生成失败")
+                            logger.info(
+                                f"对 {action_planner_info.action_message.processed_plain_text} 的回复生成失败"
+                            )
                         else:
                             logger.info("回复生成失败")
                         return {"action_type": "reply", "success": False, "result": "回复生成失败", "loop_info": None}
+
 
                     response_set = llm_response.reply_set
                     selected_expressions = llm_response.selected_expressions
@@ -772,12 +775,12 @@ class HeartFChatting:
                     # 执行普通动作
                     with Timer("动作执行", cycle_timers):
                         success, result = await self._handle_action(
-                            action=action_planner_info.action_type,
-                            action_reasoning=action_planner_info.action_reasoning or "",
-                            action_data=action_planner_info.action_data or {},
-                            cycle_timers=cycle_timers,
-                            thinking_id=thinking_id,
-                            action_message=action_planner_info.action_message,
+                            action = action_planner_info.action_type,
+                            action_reasoning = action_planner_info.action_reasoning or "",
+                            action_data = action_planner_info.action_data or {},
+                            cycle_timers = cycle_timers,
+                            thinking_id = thinking_id,
+                            action_message= action_planner_info.action_message,
                         )
 
                     self.last_active_time = time.time()

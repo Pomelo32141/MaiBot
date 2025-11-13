@@ -5,16 +5,15 @@ import sys
 import os
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple
-from src.common.data_models.database_data_model import DatabaseMessages
-from src.common.message_repository import find_messages
-from src.chat.utils.chat_message_builder import build_readable_messages_anonymized
 
 # 确保可从任意工作目录运行：将项目根目录加入 sys.path（scripts 的上一级）
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-
+from src.common.data_models.database_data_model import DatabaseMessages
+from src.common.message_repository import find_messages
+from src.chat.utils.chat_message_builder import build_readable_messages_anonymized
 
 
 SECONDS_5_MINUTES = 5 * 60
@@ -68,7 +67,7 @@ def group_by_chat(messages: Iterable[DatabaseMessages]) -> Dict[str, List[Databa
     for msg in messages:
         groups.setdefault(msg.chat_id, []).append(msg)
     # 保证每个分组内按时间升序
-    for _chat_id, msgs in groups.items():
+    for chat_id, msgs in groups.items():
         msgs.sort(key=lambda m: m.time or 0)
     return groups
 
@@ -149,8 +148,8 @@ def merge_adjacent_same_user(messages: List[DatabaseMessages]) -> List[DatabaseM
             continue
 
         last = bucket[-1]
-        same_user = msg.user_info.user_id == last.user_info.user_id
-        close_enough = (msg.time or 0) - (last.time or 0) <= SECONDS_5_MINUTES
+        same_user = (msg.user_info.user_id == last.user_info.user_id)
+        close_enough = ((msg.time or 0) - (last.time or 0) <= SECONDS_5_MINUTES)
 
         if same_user and close_enough:
             bucket.append(msg)
@@ -210,7 +209,7 @@ def build_pairs(
     groups = group_by_chat(messages)
 
     all_pairs: List[Tuple[str, str, str]] = []
-    for _chat_id, msgs in groups.items():  # noqa: F841 - chat_id 未直接使用
+    for chat_id, msgs in groups.items():  # noqa: F841 - chat_id 未直接使用
         merged = merge_adjacent_same_user(msgs)
         pairs = build_pairs_for_chat(merged, min_ctx, max_ctx)
         all_pairs.extend(pairs)
@@ -324,3 +323,5 @@ def run_interactive() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
