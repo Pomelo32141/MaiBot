@@ -380,8 +380,153 @@ class FileWatcher:
 ### 正式的插件依赖管理系统
 - [ ] requirements.txt分析
 - [ ] python_dependencies分析
-- [ ] 自动安装（提案）
+- [ ] 自动安装(提案)
 - [ ] plugin_dependencies分析
+
+#### 插件依赖管理器设计
+使用 `importlib.metadata` 进行插件依赖管理，实现自动依赖检查和安装功能
+
+`PluginDependencyManager` - 插件依赖管理器:
+```python
+import importlib.metadata
+from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+
+@dataclass
+class DependencyInfo:
+    """依赖信息"""
+    name: str
+    required_version: str
+    installed_version: Optional[str] = None
+    is_satisfied: bool = False
+
+class PluginDependencyManager:
+    def __init__(self):
+        self._installed_packages: Dict[str, str] = {}
+        self._dependency_cache: Dict[str, List[DependencyInfo]] = {}
+    
+    def scan_installed_packages(self) -> Dict[str, str]:
+        """
+        扫描已安装的所有Python包
+        使用 importlib.metadata.distributions() 获取所有已安装的包
+        返回 {包名: 版本号} 的字典
+        """
+        pass
+    
+    def parse_plugin_dependencies(self, plugin_config: Dict) -> List[DependencyInfo]:
+        """
+        解析插件配置中的依赖信息
+        从 plugin_config 中提取 python_dependencies 字段
+        支持多种版本指定格式: ==, >=, <=, >, <, ~=
+        返回依赖信息列表
+        """
+        pass
+    
+    def check_dependencies(
+        self, 
+        plugin_name: str, 
+        dependencies: List[DependencyInfo]
+    ) -> Tuple[List[DependencyInfo], List[DependencyInfo]]:
+        """
+        检查插件依赖是否满足
+        对比插件要求的依赖版本与已安装的包版本
+        返回 (满足的依赖列表, 不满足的依赖列表)
+        """
+        pass
+    
+    def compare_version(
+        self, 
+        installed_version: str, 
+        required_version: str
+    ) -> bool:
+        """
+        比较版本号是否满足要求
+        支持版本操作符: ==, >=, <=, >, <, ~=
+        使用 packaging.version 进行版本比较
+        返回是否满足要求
+        """
+        pass
+    
+    async def install_dependencies(
+        self, 
+        dependencies: List[DependencyInfo],
+        *,
+        upgrade: bool = False
+    ) -> bool:
+        """
+        安装缺失或版本不匹配的依赖
+        调用 pip install 安装指定版本的包
+        upgrade: 是否升级已有包
+        返回安装是否成功
+        """
+        pass
+    
+    def get_dependency_tree(self, plugin_name: str) -> Dict[str, List[str]]:
+        """
+        获取插件的完整依赖树
+        递归分析插件依赖的包及其子依赖
+        返回依赖关系图
+        """
+        pass
+    
+    def validate_all_plugins(self) -> Dict[str, bool]:
+        """
+        验证所有已加载插件的依赖完整性
+        返回 {插件名: 依赖是否满足} 的字典
+        """
+        pass
+```
+
+#### 依赖管理工作流程
+```
+1. 插件加载时触发依赖检查
+2. PluginDependencyManager.scan_installed_packages() 扫描已安装包
+3. PluginDependencyManager.parse_plugin_dependencies() 解析插件依赖
+4. PluginDependencyManager.check_dependencies() 对比版本
+5. 如果依赖不满足:
+   a. 记录缺失/版本不匹配的依赖
+   b. (可选) 自动调用 install_dependencies() 安装
+   c. 重新验证依赖
+6. 依赖满足后加载插件，否则跳过并警告
+```
+
+
+#### TODO List
+- [ ] 实现 `scan_installed_packages()` 方法
+    - [ ] 使用 `importlib.metadata.distributions()` 获取所有包
+    - [ ] 规范化包名（处理大小写、下划线/横杠问题）
+    - [ ] 缓存结果以提高性能
+- [ ] 实现 `parse_plugin_dependencies()` 方法
+    - [ ] 支持多种依赖格式解析
+    - [ ] 验证版本号格式合法性
+    - [ ] 处理无版本要求的依赖
+- [ ] 实现 `compare_version()` 方法
+    - [ ] 集成 `packaging.version` 库
+    - [ ] 支持所有 PEP 440 版本操作符
+    - [ ] 处理预发布版本、本地版本标识符
+- [ ] 实现 `check_dependencies()` 方法
+    - [ ] 逐个检查依赖是否已安装
+    - [ ] 比对版本是否满足要求
+    - [ ] 生成详细的依赖检查报告
+- [ ] 实现 `install_dependencies()` 方法
+    - [ ] 调用 pip 子进程安装包
+    - [ ] 支持指定 PyPI 镜像源
+    - [ ] 错误处理和回滚机制
+    - [ ] 安装进度反馈
+- [ ] 实现依赖冲突检测
+    - [ ] 检测不同插件间的依赖版本冲突
+    - [ ] 提供冲突解决建议
+- [ ] 实现依赖缓存机制（可选）
+    - [ ] 缓存已检查的依赖结果
+    - [ ] 定期刷新缓存
+- [ ] 集成到 `PluginManager`
+    - [ ] 在插件加载前进行依赖检查
+    - [ ] 依赖不满足时的处理策略（警告/阻止加载/自动安装）
+    - [ ] 提供手动触发依赖检查的接口
+- [ ] 日志和报告
+    - [ ] 记录依赖安装日志
+    - [ ] 生成依赖关系报告
+    - [ ] 依赖问题的用户友好提示
 ### 插件系统API更改
 #### Events 设计
 - [ ] 设计events.api
