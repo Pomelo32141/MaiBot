@@ -380,8 +380,9 @@ class FileWatcher:
 ### 正式的插件依赖管理系统
 - [ ] requirements.txt分析
 - [ ] python_dependencies分析
-- [ ] 自动安装(提案)
+- [ ] 自动安装
 - [ ] plugin_dependencies分析
+    - [ ] 拓扑排序
 
 #### 插件依赖管理器设计
 使用 `importlib.metadata` 进行插件依赖管理，实现自动依赖检查和安装功能
@@ -540,8 +541,8 @@ class PluginDependencyManager:
 - [ ] 设计 `api.constants` 模块
     - [x] 提供全局常量访问
     - [ ] 设计常量注册和注销方法
-    - [ ] 系统内置常量通过`dataclass`的`frozen=True`实现不可变
-    - [ ] 方便调用设计
+    - [x] 系统内置常量通过`dataclass`的`frozen=True`实现不可变
+    - [x] 方便调用设计
 ```python
 from dataclasses import dataclass
 @dataclass(frozen=True)
@@ -589,14 +590,32 @@ SYSTEM_CONSTANTS = SystemConstants()
     - [ ] 细节待定，考虑心理学相关方向
 ---
 
-## API 设计（合并到插件系统部分，待定）
-主体合并到插件系统部分
+## 日志系统设计
+将原来的终端颜色改为六位HEX颜色码，方便前端显示。
+
+将原来的256色终端改为24真彩色终端，方便准确显示颜色。
+
+---
+
+## API 设计
 ### API 设计细则
 #### 配置文件
-- [ ] 使用`tomlkit`作为配置文件解析方式
+- [x] 使用`tomlkit`作为配置文件解析方式
 - [ ] 解析内容
     - [x] 注释（已经合并到代码中，不再解析注释而是生成注释）
     - [x] 保持原有格式
+- [ ] 传递只读日志内容(使用ws)
+    - [ ] message
+    - [ ] level
+    - [ ] module
+    - [ ] timestamp
+    - [ ] lineno
+    - [ ] logger_name 和 name_mapping
+    - [ ] color
+- [ ] 插件安装系统
+    - [ ] 通过API安装插件
+    - [ ] 通过API卸载插件
+
 
 ---
 
@@ -628,6 +647,11 @@ SYSTEM_CONSTANTS = SystemConstants()
     - [ ] 请求管理（待讨论）
     - [ ] 使用量
 3. 记忆/知识图监控系统（待讨论）
+4. 日志系统
+    - [ ] 后端内容解析
+5. 插件市场系统
+    - [ ] 插件浏览
+    - [ ] 插件安装
 
 ## 自身提供的MCP设计（提案）
 - [ ] 提供一个内置的MCP，作为插件系统的一个组件
