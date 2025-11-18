@@ -62,12 +62,6 @@ class PersonalityConfig(ConfigBase):
     private_plan_style: str = ""
     """_wrap_私聊说话规则，行为风格"""
 
-    states: list[str] = field(default_factory=lambda: [])
-    """状态列表，用于随机替换personality"""
-
-    state_probability: float = 0.0
-    """状态概率，每次构建人格时替换personality的概率"""
-
 
 @dataclass
 class RelationshipConfig(ConfigBase):
@@ -358,9 +352,6 @@ class ResponseSplitterConfig(ConfigBase):
     enable_kaomoji_protection: bool = False
     """是否启用颜文字保护"""
 
-    enable_overflow_return_all: bool = False
-    """是否在超出句子数量限制时合并后一次性返回"""
-
 
 @dataclass
 class TelemetryConfig(ConfigBase):
@@ -472,9 +463,6 @@ class LPMMKnowledgeConfig(ConfigBase):
     enable: bool = True
     """是否启用LPMM知识库"""
 
-    lpmm_mode: Literal["classic", "agent"] = "classic"
-    """LPMM知识库模式，可选：classic经典模式，agent 模式，结合最新的记忆一同使用"""
-
     rag_synonym_search_top_k: int = 10
     """RAG同义词搜索的Top K数量"""
 
@@ -507,11 +495,3 @@ class LPMMKnowledgeConfig(ConfigBase):
 
     embedding_dimension: int = 1024
     """嵌入向量维度，应该与模型的输出维度一致"""
-
-
-@dataclass
-class JargonConfig(ConfigBase):
-    """Jargon配置类"""
-
-    all_global: bool = False
-    """是否将所有新增的jargon项目默认为全局（is_global=True），chat_id记录第一次存储时的id"""
