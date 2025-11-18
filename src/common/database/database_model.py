@@ -16,44 +16,68 @@ from .database import engine, get_session
 from src.common.logger import get_logger
 
 logger = get_logger("database_model")
+# 请在此处定义您的数据库实例。
+# 您需要取消注释并配置适合您的数据库的部分。
+# 例如，对于 SQLite:
+# db = SqliteDatabase('MaiBot.db')
+#
+# 对于 PostgreSQL:
+# db = PostgresqlDatabase('your_db_name', user='your_user', password='your_password',
+#                         host='localhost', port=5432)
+#
+# 对于 MySQL:
+# db = MySQLDatabase('your_db_name', user='your_user', password='your_password',
+#                    host='localhost', port=3306)
 
 
-# ==================== 数据库模型定义 ====================
+# 定义一个基础模型是一个好习惯，所有其他模型都应继承自它。
+# 这允许您在一个地方为所有模型指定数据库。
 
 
-class ChatStreams(SQLModel, table=True):
+class BaseModel(Model):
+    class Meta:
+        # 将下面的 'db' 替换为您实际的数据库实例变量名。
+        database = db  # 例如: database = my_actual_db_instance
+        pass  # 在用户定义数据库实例之前，此处为占位符
+
+
+class ChatStreams(BaseModel):
     """
-    流式聊天记录模型。
-    
-    存储聊天流的基本信息,包括用户信息、群组信息和时间戳。
+    用于存储流式记录数据的模型，类似于提供的 MongoDB 结构。
     """
-    __tablename__ = "chat_streams"
-    
-    # 主键
-    id: Optional[int] = Field(default=None, primary_key=True)
-    
-    # stream_id: 唯一的流标识符
-    stream_id: str = Field(unique=True, index=True, max_length=255)
-    
-    # create_time: 创建时间戳 (浮点数,支持小数)
-    create_time: float = Field(sa_column=Column(Float))
-    
-    # 群组信息 (可选)
-    group_platform: Optional[str] = Field(default=None, max_length=255)
-    group_id: Optional[str] = Field(default=None, max_length=255)
-    group_name: Optional[str] = Field(default=None, max_length=255)
-    
-    # 最后活跃时间
-    last_active_time: float = Field(sa_column=Column(Float))
-    
-    # 平台信息
-    platform: str = Field(max_length=255)
-    
-    # 用户信息
-    user_platform: str = Field(max_length=255)
-    user_id: str = Field(max_length=255)
-    user_nickname: str = Field(max_length=255)
-    user_cardname: Optional[str] = Field(default=None, max_length=255)
+
+    # stream_id: "a544edeb1a9b73e3e1d77dff36e41264"
+    # 假设 stream_id 是唯一的，并为其创建索引以提高查询性能。
+    stream_id = TextField(unique=True, index=True)
+
+    # create_time: 1746096761.4490178 (时间戳，精确到小数点后7位)
+    # DoubleField 用于存储浮点数，适合此类时间戳。
+    create_time = DoubleField()
+
+    # group_info 字段:
+    #   platform: "qq"
+    #   group_id: "941657197"
+    #   group_name: "测试"
+    group_platform = TextField(null=True)  # 群聊信息可能不存在
+    group_id = TextField(null=True)
+    group_name = TextField(null=True)
+
+    # last_active_time: 1746623771.4825106 (时间戳，精确到小数点后7位)
+    last_active_time = DoubleField()
+
+    # platform: "qq" (顶层平台字段)
+    platform = TextField()
+
+    # user_info 字段:
+    #   platform: "qq"
+    #   user_id: "1787882683"
+    #   user_nickname: "墨梓柒(IceSakurary)"
+    #   user_cardname: ""
+    user_platform = TextField()
+    user_id = TextField()
+    user_nickname = TextField()
+    # user_cardname 可能为空字符串或不存在，设置 null=True 更具灵活性。
+    user_cardname = TextField(null=True)
 
 
 class LLMUsage(SQLModel, table=True):
@@ -248,129 +272,161 @@ class OnlineTime(SQLModel, table=True):
     start_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now)
     end_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, index=True)
 
+    class Meta:
+        # database = db # 继承自 BaseModel
+        table_name = "online_time"
 
-class PersonInfo(SQLModel, table=True):
+
+class PersonInfo(BaseModel):
     """
-    个人信息模型。
-    
-    存储用户的个人资料和印象信息。
+    用于存储个人信息数据的模型。
     """
-    __tablename__ = "person_info"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
-    
-    is_known: bool = Field(default=False)
-    person_id: str = Field(unique=True, index=True, max_length=255)
-    person_name: Optional[str] = Field(default=None, max_length=255)
-    name_reason: Optional[str] = Field(default=None)
-    
-    platform: str = Field(max_length=255)
-    user_id: str = Field(index=True, max_length=255)
-    nickname: Optional[str] = Field(default=None, max_length=255)
-    
-    memory_points: Optional[str] = Field(default=None)
-    know_times: Optional[float] = Field(default=None, sa_column=Column(Float, nullable=True))
-    know_since: Optional[float] = Field(default=None, sa_column=Column(Float, nullable=True))
-    last_know: Optional[float] = Field(default=None, sa_column=Column(Float, nullable=True))
+
+    is_known = BooleanField(default=False)  # 是否已认识
+    person_id = TextField(unique=True, index=True)  # 个人唯一ID
+    person_name = TextField(null=True)  # 个人名称 (允许为空)
+    name_reason = TextField(null=True)  # 名称设定的原因
+    platform = TextField()  # 平台
+    user_id = TextField(index=True)  # 用户ID
+    nickname = TextField(null=True)  # 用户昵称
+    group_nick_name = TextField(null=True)  # 群昵称列表 (JSON格式，存储 [{"group_id": str, "group_nick_name": str}])
+    memory_points = TextField(null=True)  # 个人印象的点
+    know_times = FloatField(null=True)  # 认识时间 (时间戳)
+    know_since = FloatField(null=True)  # 首次印象总结时间
+    last_know = FloatField(null=True)  # 最后一次印象总结时间
+
+    class Meta:
+        # database = db # 继承自 BaseModel
+        table_name = "person_info"
 
 
-class GroupInfo(SQLModel, table=True):
+class GroupInfo(BaseModel):
     """
-    群组信息模型。
-    
-    管理群组的基本信息和统计数据。
+    用于存储群组信息数据的模型。
     """
-    __tablename__ = "group_info"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
-    
-    group_id: str = Field(unique=True, index=True, max_length=255)
-    group_name: Optional[str] = Field(default=None, max_length=255)
-    platform: str = Field(max_length=255)
-    
-    group_impression: Optional[str] = Field(default=None)
-    member_list: Optional[str] = Field(default=None)  # JSON 格式
-    topic: Optional[str] = Field(default=None)
-    
-    create_time: Optional[float] = Field(default=None, sa_column=Column(Float, nullable=True))
-    last_active: Optional[float] = Field(default=None, sa_column=Column(Float, nullable=True))
-    member_count: Optional[int] = Field(default=0)
+
+    group_id = TextField(unique=True, index=True)  # 群组唯一ID
+    group_name = TextField(null=True)  # 群组名称 (允许为空)
+    platform = TextField()  # 平台
+    group_impression = TextField(null=True)  # 群组印象
+    member_list = TextField(null=True)  # 群成员列表 (JSON格式)
+    topic = TextField(null=True)  # 群组基本信息
+
+    create_time = FloatField(null=True)  # 创建时间 (时间戳)
+    last_active = FloatField(null=True)  # 最后活跃时间
+    member_count = IntegerField(null=True, default=0)  # 成员数量
+
+    class Meta:
+        # database = db # 继承自 BaseModel
+        table_name = "group_info"
 
 
-class Expression(SQLModel, table=True):
+class Expression(BaseModel):
     """
-    表达风格模型。
-    
-    记录不同场景下的表达方式和风格。
+    用于存储表达风格的模型。
     """
-    __tablename__ = "expression"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
-    
-    situation: str = Field(max_length=255)
-    style: str
-    count: float = Field(sa_column=Column(Float))
-    
-    # 新模式字段
-    context: Optional[str] = Field(default=None)
-    context_words: Optional[str] = Field(default=None)
-    
-    last_active_time: float = Field(sa_column=Column(Float))
-    chat_id: str = Field(index=True, max_length=255)
-    type: str = Field(max_length=50)
-    create_date: Optional[float] = Field(default=None, sa_column=Column(Float, nullable=True))
+
+    situation = TextField()
+    style = TextField()
+
+    # new mode fields
+    context = TextField(null=True)
+    up_content = TextField(null=True)
+
+    content_list = TextField(null=True)
+    count = IntegerField(default=1)
+    last_active_time = FloatField()
+    chat_id = TextField(index=True)
+    create_date = FloatField(null=True)  # 创建日期，允许为空以兼容老数据
+
+    class Meta:
+        table_name = "expression"
 
 
-class MemoryChest(SQLModel, table=True):
+class Jargon(BaseModel):
     """
-    记忆仓库模型。
-    
-    存储重要的记忆内容。
+    用于存储俚语的模型
     """
-    __tablename__ = "memory_chest"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
-    
-    title: str = Field(max_length=255)
-    content: str
-    chat_id: Optional[str] = Field(default=None, max_length=255)
-    locked: bool = Field(default=False)
+
+    content = TextField()
+    raw_content = TextField(null=True)
+    type = TextField(null=True)
+    translation = TextField(null=True)
+    meaning = TextField(null=True)
+    chat_id = TextField(index=True)
+    is_global = BooleanField(default=False)
+    count = IntegerField(default=0)
+    is_jargon = BooleanField(null=True)  # None表示未判定，True表示是黑话，False表示不是黑话
+    last_inference_count = IntegerField(null=True)  # 最后一次判定的count值，用于避免重启后重复判定
+    is_complete = BooleanField(default=False)  # 是否已完成所有推断（count>=100后不再推断）
+    inference_with_context = TextField(null=True)  # 基于上下文的推断结果（JSON格式）
+    inference_content_only = TextField(null=True)  # 仅基于词条的推断结果（JSON格式）
+
+    class Meta:
+        table_name = "jargon"
 
 
-class MemoryConflict(SQLModel, table=True):
+class ChatHistory(BaseModel):
     """
-    记忆冲突模型。
-    
-    记录记忆整合过程中的冲突及其解决方案。
+    用于存储聊天历史概括的模型
     """
-    __tablename__ = "memory_conflicts"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
-    
-    conflict_content: str
-    answer: Optional[str] = Field(default=None)
-    create_time: float = Field(sa_column=Column(Float))
-    update_time: float = Field(sa_column=Column(Float))
-    context: Optional[str] = Field(default=None)
-    chat_id: Optional[str] = Field(default=None, max_length=255)
-    raise_time: Optional[float] = Field(default=None, sa_column=Column(Float, nullable=True))
+
+    chat_id = TextField(index=True)  # 聊天ID
+    start_time = DoubleField()  # 起始时间
+    end_time = DoubleField()  # 结束时间
+    original_text = TextField()  # 对话原文
+    participants = TextField()  # 参与的所有人的昵称，JSON格式存储
+    theme = TextField()  # 主题：这段对话的主要内容，一个简短的标题
+    keywords = TextField()  # 关键词：这段对话的关键词，JSON格式存储
+    summary = TextField()  # 概括：对这段话的平文本概括
+    count = IntegerField(default=0)  # 被检索次数
+    forget_times = IntegerField(default=0)  # 被遗忘检查的次数
+
+    class Meta:
+        table_name = "chat_history"
 
 
-# ==================== 数据库初始化和维护函数 ====================
+class ThinkingBack(BaseModel):
+    """
+    用于存储记忆检索思考过程的模型
+    """
+
+    chat_id = TextField(index=True)  # 聊天ID
+    question = TextField()  # 提出的问题
+    context = TextField(null=True)  # 上下文信息
+    found_answer = BooleanField(default=False)  # 是否找到答案
+    answer = TextField(null=True)  # 答案内容
+    thinking_steps = TextField(null=True)  # 思考步骤（JSON格式）
+    create_time = DoubleField()  # 创建时间
+    update_time = DoubleField()  # 更新时间
+
+    class Meta:
+        table_name = "thinking_back"
 
 
-def create_tables() -> None:
+MODELS = [
+    ChatStreams,
+    LLMUsage,
+    Emoji,
+    Messages,
+    Images,
+    ImageDescriptions,
+    OnlineTime,
+    PersonInfo,
+    Expression,
+    ActionRecords,
+    Jargon,
+    ChatHistory,
+    ThinkingBack,
+]
+
+
+def create_tables():
     """
     创建所有在模型中定义的数据库表。
-    
-    使用 SQLModel 的元数据机制自动创建所有表结构。
     """
-    try:
-        SQLModel.metadata.create_all(engine)
-        logger.info("所有数据库表创建成功")
-    except Exception as e:
-        logger.exception(f"创建数据库表时出错: {e}")
-        raise
+    with db:
+        db.create_tables(MODELS)
 
 
 def initialize_database(sync_constraints: bool = False) -> None:
@@ -388,56 +444,70 @@ def initialize_database(sync_constraints: bool = False) -> None:
         4. 自动添加缺失的字段
         5. (可选) 同步字段约束
     """
-    models = [
-        ChatStreams,
-        LLMUsage,
-        Emoji,
-        Messages,
-        Images,
-        ImageDescriptions,
-        OnlineTime,
-        PersonInfo,
-        GroupInfo,
-        Expression,
-        ActionRecords,
-        MemoryChest,
-        MemoryConflict,
-    ]
 
     try:
-        inspector = inspect(engine)
-        existing_tables = inspector.get_table_names()
-        
-        for model in models:
-            table_name = model.__tablename__
-            
-            # 检查表是否存在
-            if table_name not in existing_tables:
-                logger.warning(f"表 '{table_name}' 未找到,正在创建...")
-                model.metadata.create_all(engine, tables=[model.__table__])
-                logger.info(f"表 '{table_name}' 创建成功")
-                continue
-            
-            # 检查字段
-            existing_columns = {col['name'] for col in inspector.get_columns(table_name)}
-            model_fields = set(model.__fields__.keys())
-            
-            # 移除 SQLModel 内部字段
-            model_fields.discard('id')
-            
-            missing_fields = model_fields - existing_columns
-            
-            if missing_fields:
-                logger.warning(f"表 '{table_name}' 缺失字段: {missing_fields}")
-                _add_missing_columns(table_name, model, missing_fields)
-            
-            # 检查多余字段
-            extra_fields = existing_columns - model_fields - {'id'}
-            if extra_fields:
-                logger.warning(f"表 '{table_name}' 存在多余字段: {extra_fields}")
-                _remove_extra_columns(table_name, extra_fields)
-        
-        # 如果启用了约束同步
+        with db:  # 管理 table_exists 检查的连接
+            for model in MODELS:
+                table_name = model._meta.table_name
+                if not db.table_exists(model):
+                    logger.warning(f"表 '{table_name}' 未找到，正在创建...")
+                    db.create_tables([model])
+                    logger.info(f"表 '{table_name}' 创建成功")
+                    continue
+
+                # 检查字段
+                cursor = db.execute_sql(f"PRAGMA table_info('{table_name}')")
+                existing_columns = {row[1] for row in cursor.fetchall()}
+                model_fields = set(model._meta.fields.keys())
+
+                if missing_fields := model_fields - existing_columns:
+                    logger.warning(f"表 '{table_name}' 缺失字段: {missing_fields}")
+
+                for field_name, field_obj in model._meta.fields.items():
+                    if field_name not in existing_columns:
+                        logger.info(f"表 '{table_name}' 缺失字段 '{field_name}'，正在添加...")
+                        field_type = field_obj.__class__.__name__
+                        sql_type = {
+                            "TextField": "TEXT",
+                            "IntegerField": "INTEGER",
+                            "FloatField": "FLOAT",
+                            "DoubleField": "DOUBLE",
+                            "BooleanField": "INTEGER",
+                            "DateTimeField": "DATETIME",
+                        }.get(field_type, "TEXT")
+                        alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {field_name} {sql_type}"
+                        alter_sql += " NULL" if field_obj.null else " NOT NULL"
+                        if hasattr(field_obj, "default") and field_obj.default is not None:
+                            # 正确处理不同类型的默认值，跳过lambda函数
+                            default_value = field_obj.default
+                            if callable(default_value):
+                                # 跳过lambda函数或其他可调用对象，这些无法在SQL中表示
+                                pass
+                            elif isinstance(default_value, str):
+                                alter_sql += f" DEFAULT '{default_value}'"
+                            elif isinstance(default_value, bool):
+                                alter_sql += f" DEFAULT {int(default_value)}"
+                            else:
+                                alter_sql += f" DEFAULT {default_value}"
+                        try:
+                            db.execute_sql(alter_sql)
+                            logger.info(f"字段 '{field_name}' 添加成功")
+                        except Exception as e:
+                            logger.error(f"添加字段 '{field_name}' 失败: {e}")
+
+                # 检查并删除多余字段（新增逻辑）
+                extra_fields = existing_columns - model_fields
+                if extra_fields:
+                    logger.warning(f"表 '{table_name}' 存在多余字段: {extra_fields}")
+                for field_name in extra_fields:
+                    try:
+                        logger.warning(f"表 '{table_name}' 存在多余字段 '{field_name}'，正在尝试删除...")
+                        db.execute_sql(f"ALTER TABLE {table_name} DROP COLUMN {field_name}")
+                        logger.info(f"字段 '{field_name}' 删除成功")
+                    except Exception as e:
+                        logger.error(f"删除字段 '{field_name}' 失败: {e}")
+
+        # 如果启用了约束同步，执行约束检查和修复
         if sync_constraints:
             logger.debug("开始同步数据库字段约束...")
             sync_field_constraints()
@@ -528,72 +598,65 @@ def sync_field_constraints() -> None:
     
     如果发现不一致,会自动修复字段约束。
     """
-    models = [
-        ChatStreams,
-        LLMUsage,
-        Emoji,
-        Messages,
-        Images,
-        ImageDescriptions,
-        OnlineTime,
-        PersonInfo,
-        GroupInfo,
-        Expression,
-        ActionRecords,
-        MemoryChest,
-        MemoryConflict,
-    ]
 
     try:
-        inspector = inspect(engine)
-        
-        for model in models:
-            table_name = model.__tablename__
-            
-            if table_name not in inspector.get_table_names():
-                logger.warning(f"表 '{table_name}' 不存在,跳过约束检查")
-                continue
-            
-            logger.debug(f"检查表 '{table_name}' 的字段约束...")
-            
-            # 获取当前表结构
-            current_schema = {
-                col['name']: col 
-                for col in inspector.get_columns(table_name)
-            }
-            
-            constraints_to_fix = []
-            
-            # 检查每个字段的约束
-            for field_name, field_info in model.__fields__.items():
-                if field_name not in current_schema:
+        with db:
+            for model in MODELS:
+                table_name = model._meta.table_name
+                if not db.table_exists(model):
+                    logger.warning(f"表 '{table_name}' 不存在，跳过约束检查")
                     continue
-                
-                current_nullable = current_schema[field_name]['nullable']
-                model_allows_null = field_info.allow_none
-                
-                # 约束不一致
-                if model_allows_null and not current_nullable:
-                    constraints_to_fix.append({
-                        'field_name': field_name,
-                        'action': 'allow_null',
-                        'current': 'NOT NULL',
-                        'target': 'NULL'
-                    })
-                elif not model_allows_null and current_nullable:
-                    constraints_to_fix.append({
-                        'field_name': field_name,
-                        'action': 'disallow_null',
-                        'current': 'NULL',
-                        'target': 'NOT NULL'
-                    })
-            
-            if constraints_to_fix:
-                logger.info(f"表 '{table_name}' 需要修复 {len(constraints_to_fix)} 个字段约束")
-                _fix_table_constraints(table_name, model, constraints_to_fix)
-            else:
-                logger.debug(f"表 '{table_name}' 的字段约束已同步")
-                
+
+                logger.debug(f"检查表 '{table_name}' 的字段约束...")
+
+                # 获取当前表结构信息
+                cursor = db.execute_sql(f"PRAGMA table_info('{table_name}')")
+                current_schema = {
+                    row[1]: {"type": row[2], "notnull": bool(row[3]), "default": row[4]} for row in cursor.fetchall()
+                }
+
+                # 检查每个模型字段的约束
+                constraints_to_fix = []
+                for field_name, field_obj in model._meta.fields.items():
+                    if field_name not in current_schema:
+                        continue  # 字段不存在，跳过
+
+                    current_notnull = current_schema[field_name]["notnull"]
+                    model_allows_null = field_obj.null
+
+                    # 如果模型允许 null 但数据库字段不允许 null，需要修复
+                    if model_allows_null and current_notnull:
+                        constraints_to_fix.append(
+                            {
+                                "field_name": field_name,
+                                "field_obj": field_obj,
+                                "action": "allow_null",
+                                "current_constraint": "NOT NULL",
+                                "target_constraint": "NULL",
+                            }
+                        )
+                        logger.warning(f"字段 '{field_name}' 约束不一致: 模型允许NULL，但数据库为NOT NULL")
+
+                    # 如果模型不允许 null 但数据库字段允许 null，也需要修复（但要小心）
+                    elif not model_allows_null and not current_notnull:
+                        constraints_to_fix.append(
+                            {
+                                "field_name": field_name,
+                                "field_obj": field_obj,
+                                "action": "disallow_null",
+                                "current_constraint": "NULL",
+                                "target_constraint": "NOT NULL",
+                            }
+                        )
+                        logger.warning(f"字段 '{field_name}' 约束不一致: 模型不允许NULL，但数据库允许NULL")
+
+                # 修复约束不一致的字段
+                if constraints_to_fix:
+                    logger.info(f"表 '{table_name}' 需要修复 {len(constraints_to_fix)} 个字段约束")
+                    _fix_table_constraints(table_name, model, constraints_to_fix)
+                else:
+                    logger.debug(f"表 '{table_name}' 的字段约束已同步")
+
     except Exception as e:
         logger.exception(f"同步字段约束时出错: {e}")
 
@@ -707,67 +770,56 @@ def check_field_constraints() -> dict[str, list[dict]]:
     Returns:
         字典,键为表名,值为不一致字段的信息列表
     """
-    models = [
-        ChatStreams,
-        LLMUsage,
-        Emoji,
-        Messages,
-        Images,
-        ImageDescriptions,
-        OnlineTime,
-        PersonInfo,
-        GroupInfo,
-        Expression,
-        ActionRecords,
-        MemoryChest,
-        MemoryConflict,
-    ]
 
     inconsistencies = {}
 
     try:
-        inspector = inspect(engine)
-        
-        for model in models:
-            table_name = model.__tablename__
-            
-            if table_name not in inspector.get_table_names():
-                continue
-            
-            current_schema = {
-                col['name']: col 
-                for col in inspector.get_columns(table_name)
-            }
-            
-            table_inconsistencies = []
-            
-            for field_name, field_info in model.__fields__.items():
-                if field_name not in current_schema:
+        with db:
+            for model in MODELS:
+                table_name = model._meta.table_name
+                if not db.table_exists(model):
                     continue
-                
-                current_nullable = current_schema[field_name]['nullable']
-                model_allows_null = field_info.allow_none
-                
-                if model_allows_null and not current_nullable:
-                    table_inconsistencies.append({
-                        'field_name': field_name,
-                        'issue': 'model_allows_null_but_db_not_null',
-                        'model_constraint': 'NULL',
-                        'db_constraint': 'NOT NULL',
-                        'recommended_action': 'allow_null'
-                    })
-                elif not model_allows_null and current_nullable:
-                    table_inconsistencies.append({
-                        'field_name': field_name,
-                        'issue': 'model_not_null_but_db_allows_null',
-                        'model_constraint': 'NOT NULL',
-                        'db_constraint': 'NULL',
-                        'recommended_action': 'disallow_null'
-                    })
-            
-            if table_inconsistencies:
-                inconsistencies[table_name] = table_inconsistencies
-                
+
+                # 获取当前表结构信息
+                cursor = db.execute_sql(f"PRAGMA table_info('{table_name}')")
+                current_schema = {
+                    row[1]: {"type": row[2], "notnull": bool(row[3]), "default": row[4]} for row in cursor.fetchall()
+                }
+
+                table_inconsistencies = []
+
+                # 检查每个模型字段的约束
+                for field_name, field_obj in model._meta.fields.items():
+                    if field_name not in current_schema:
+                        continue
+
+                    current_notnull = current_schema[field_name]["notnull"]
+                    model_allows_null = field_obj.null
+
+                    if model_allows_null and current_notnull:
+                        table_inconsistencies.append(
+                            {
+                                "field_name": field_name,
+                                "issue": "model_allows_null_but_db_not_null",
+                                "model_constraint": "NULL",
+                                "db_constraint": "NOT NULL",
+                                "recommended_action": "allow_null",
+                            }
+                        )
+                    elif not model_allows_null and not current_notnull:
+                        table_inconsistencies.append(
+                            {
+                                "field_name": field_name,
+                                "issue": "model_not_null_but_db_allows_null",
+                                "model_constraint": "NOT NULL",
+                                "db_constraint": "NULL",
+                                "recommended_action": "disallow_null",
+                            }
+                        )
+
+                if table_inconsistencies:
+                    inconsistencies[table_name] = table_inconsistencies
+
     except Exception as e:
         logger.exception(f"检查字段约束时出错: {e}")
 
